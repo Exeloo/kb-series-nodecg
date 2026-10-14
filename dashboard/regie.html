@@ -4,7 +4,7 @@
 	<meta charset="utf-8">
 	<title>Régie</title>
 	<!--
-		Régie : tableau de bord du direct (transition, scène de fond, AFFICHER / masquer chaque overlay, lower thirds rapides).
+		Régie : tableau de bord du direct (transition, scène de fond, AFFICHER / masquer chaque overlay, plateau host / casters, lower thirds rapides).
 		Écrit : streamScene, transition, les booléens « visible » des overlays (via KBO), liveLowerThird (via KBLT).
 		N'envoie aucun message : rien ici ne touche aux données (elles sont dans le panneau « Données »).
 	-->
@@ -50,9 +50,10 @@
 	<h3>Transition</h3>
 	<div class="card tr-card">
 		<label>1. Type</label>
-		<div class="grid2" id="trType">
+		<div class="grid3" id="trType">
 			<button type="button" data-type="logo">Logo seul</button>
 			<button type="button" data-type="map">Logo + map</button>
+			<button type="button" data-type="replay">Replay</button>
 		</div>
 		<label class="vh" for="trMapSel">Map de la transition</label>
 		<select id="trMapSel"></select>
@@ -82,9 +83,11 @@
 	<label class="chk"><input type="checkbox" id="exclusive"> Un seul plein écran à la fois (masque les autres automatiquement)</label>
 	<div class="hint">Les réglages détaillés (textes, joueurs, MVP…) sont dans leurs panneaux : onglets « 1. Match & Joueurs » et « 2. Écrans & Tournoi ».</div>
 
+	<h3>Plateau : host et casters</h3>
+	<div class="card" id="crew"></div>
 	<h3>Lower thirds rapides</h3>
 	<div id="l3q"></div>
-	<div class="hint">Presets et réglages complets : panneau Live. Entrée dans un champ = mettre à jour.</div>
+	<div class="hint">Presets et réglages complets : panneau Lower thirds. Entrée dans un champ = mettre à jour.</div>
 	<div class="hint">Sauvegardes, import, données de test et réinitialisation : onglet « 3. Données ».</div>
 
 	<details>
@@ -172,9 +175,9 @@
 			clearScreen();
 		};
 
-		// ---------- Transition : type (logo / logo + map) → destination → lancer ----------
+		// ---------- Transition : type (logo / logo + map / replay) → destination → lancer ----------
 		let trType = 'logo';
-		try { trType = localStorage.getItem('kb-tr-type') === 'map' ? 'map' : 'logo'; } catch {}
+		try { trType = KBM.trKind(localStorage.getItem('kb-tr-type')); } catch {}
 		const DIR = { ltr: 'gauche → droite', rtl: 'droite → gauche', down: 'haut → bas', up: 'bas → haut', center: 'du centre', diag: 'diagonale' };
 		function renderTransition() {
 			document.querySelectorAll('#trType button').forEach((b) => b.classList.toggle('sel', b.dataset.type === trType));
@@ -189,7 +192,7 @@
 			sel.classList.toggle('hidden', trType !== 'map');
 			// Réglages en vigueur (panneau Maps & Transitions → Réglages de la transition)
 			const st = KBM.trSettings(trSettings.value);
-			const t = KBM.stingerTiming(st, trType === 'map');
+			const t = KBM.stingerTiming(st, trType);
 			$('#trInfo').textContent = `Réglages appliqués : durée ${(t.duration / 1000).toFixed(1)} s · volets ${DIR[st.direction] || st.direction} · coupe à ${(t.cut / 1000).toFixed(2)} s — modifiables dans Maps & Transitions`;
 			KBD.fillSelect('#trDest', `<option value="none">Rien (juste la transition)</option>
 				<option value="clear">Tout masquer · retour au jeu</option>
@@ -214,10 +217,11 @@
 		$('#trGo').onclick = () => {
 			const map = trType === 'map' ? $('#trMapSel').value || null : null;
 			const d = $('#trDest').value || 'none';
-			const t = KBM.stingerTiming(KBM.trSettings(trSettings.value), !!map);
-			KB.rep.transition.value = { at: Date.now(), map };
+			const kind = trType === 'replay' ? 'replay' : map ? 'map' : 'logo';
+			const t = KBM.stingerTiming(KBM.trSettings(trSettings.value), kind);
+			KB.rep.transition.value = { at: Date.now(), map, kind };
 			const label = $('#trDest').selectedOptions[0] ? $('#trDest').selectedOptions[0].textContent : '';
-			KBD.flash('trMsg', `Transition ${map ? '+ ' + map : 'logo'} lancée${d !== 'none' ? ' → ' + label : ''}`, 'ok', 0);
+			KBD.flash('trMsg', `Transition ${kind === 'replay' ? 'replay' : map ? '+ ' + map : 'logo'} lancée${d !== 'none' ? ' → ' + label : ''}`, 'ok', 0);
 			clearTimeout(trBusy);
 			trBusy = null;
 			// L'action est faite pendant que le stinger couvre tout l'écran : au point de coupe, sauf pour une scène de fond,
@@ -241,6 +245,7 @@
 			renderTransition();
 		}
 
+		KBLT.mountCrew('#crew');
 		KBLT.mount('#l3q', { compact: true });
 
 		// ---------- URLs OBS ----------
@@ -255,10 +260,10 @@
 		$('#urls').onclick = (e) => {
 			const u = e.target.dataset.u;
 			if (!u) return;
-			navigator.clipboard.writeText(u).then(() => { e.target.textContent = 'Copié ✓'; setTimeout(() => (e.target.textContent = 'Copier'), 1200); });
+			KBD.copy(u).then((ok) => { e.target.textContent = ok ? 'Copié ✓' : 'Échec : sélectionne l\'URL'; setTimeout(() => (e.target.textContent = 'Copier'), 1500); });
 		};
 
-		KB.watch([...KBO.repNames(), 'match', 'teams', 'playerProfiles', 'playerData', 'valorantData', trSettings], render);
+		KB.watch([...KBO.repNames(), 'match', 'teams', 'casters', 'playerProfiles', 'playerData', 'valorantData', trSettings], render);
 		KB.watch([streamScene], renderScenes);
 	</script>
 </body>

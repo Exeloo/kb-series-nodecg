@@ -12,6 +12,7 @@
 //   KBD.teamOptions(selectedId, { empty, teams, label })  <option> des équipes (triées par nom)
 //   KBD.getPath(obj, 'a.b.c') / KBD.setPath(obj, 'a.b.c', value)
 //   KBD.bindDirty(container, { read, fill, live, same, onState }) → { sync, isDirty }  brouillon local d'un formulaire
+//   KBD.copy(text) → Promise<bool>             copie dans le presse-papiers, y compris en http:// sur le réseau (repli sans API Clipboard)
 (function () {
 	const KBD = {};
 	const byId = (el) => (typeof el === 'string' ? document.getElementById(el.replace(/^#/, '')) || document.querySelector(el) : el);
@@ -214,6 +215,18 @@
 		// Un changement arrivé pendant la saisie est repris à la sortie du formulaire (si le brouillon n'a pas été modifié)
 		box.addEventListener('focusout', () => setTimeout(sync, 0));
 		return { sync, isDirty };
+	};
+
+	/** Copie `text`. L'API Clipboard n'existe qu'en HTTPS ou sur localhost : sinon, repli par sélection + copie. */
+	KBD.copy = async (text) => {
+		try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; } } catch { /* repli */ }
+		const ta = document.createElement('textarea');
+		ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+		document.body.appendChild(ta); ta.select();
+		let ok = false;
+		try { ok = document.execCommand('copy'); } catch { ok = false; }
+		ta.remove();
+		return ok;
 	};
 
 	window.KBD = KBD;

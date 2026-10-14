@@ -49,7 +49,7 @@
 		playerData: () => ({}),
 		playerProfiles: () => ({}),
 
-		casters: () => [{ name: 'Caster 1', handle: '' }, { name: 'Caster 2', handle: '' }],
+		casters: () => [{ name: 'Host', handle: '', role: 'host' }, { name: 'Caster 1', handle: '', role: 'caster' }, { name: 'Caster 2', handle: '', role: 'caster' }], // role : caster | host (LIVE.ROLES)
 
 		// Planning : [{ time, label, teamA, teamB, status: 'upcoming'|'live'|'done', scoreA, scoreB }]
 		schedule: () => [],
@@ -61,7 +61,7 @@
 		streamScene: () => ({ scene: 'none', via: 'cut', at: 0 }),
 
 		// Déclencheur du stinger : on écrit { at: Date.now(), map: 'Ascent'|null }
-		transition: () => ({ at: 0, map: null }),
+		transition: () => ({ at: 0, map: null, kind: 'logo' }), // kind : 'logo' | 'map' | 'replay' (KBM.trKind)
 
 		// Données Valorant (maps, agents) mises en cache depuis valorant-api.com
 		valorantData: () => ({ maps: {}, agents: {}, updatedAt: 0 }),

@@ -15,7 +15,8 @@
     "check": "node tools/check.js",
     "verify": "npm run lint && npm run check",
     "shot": "node tools/shot.js",
-    "export:stinger": "node tools/export-stinger.js"
+    "export:stinger": "node tools/export-stinger.js",
+    "pack:extension": "node tools/pack-extension.js"
   },
   "nodecg": {
     "compatibleRange": "^2.0.0",
@@ -64,8 +65,29 @@
       },
       {
         "name": "live",
-        "title": "Live · score de série, lower thirds, ticker, 50/50",
+        "title": "Live · score de série",
         "file": "live.html",
+        "width": 4,
+        "headerColor": "#2b2fb5"
+      },
+      {
+        "name": "lower-thirds",
+        "title": "Lower thirds · plateau, presets, intervenants",
+        "file": "lower-thirds.html",
+        "width": 4,
+        "headerColor": "#2b2fb5"
+      },
+      {
+        "name": "ticker",
+        "title": "Ticker défilant",
+        "file": "ticker.html",
+        "width": 4,
+        "headerColor": "#2b2fb5"
+      },
+      {
+        "name": "dual-cam",
+        "title": "Écran 50/50 (dual-cam)",
+        "file": "dual-cam.html",
         "width": 4,
         "headerColor": "#2b2fb5"
       },

@@ -1,12 +1,11 @@
-// Vérification rapide : ouvre chaque overlay et chaque panneau dans Chrome headless et signale
+// Vérification rapide : ouvre chaque overlay et chaque panneau dans un navigateur invisible (Chrome, Edge ou Firefox) et signale
 // les erreurs (console, exceptions, fichiers introuvables). Le serveur NodeCG doit tourner.
 // Usage : npm run check            (ou : node tools/check.js [--base http://localhost:9090] [--shots dossier] [--only graphics|dashboard] [--wait 1500])
 //   --shots <dossier> : enregistre aussi une capture PNG de chaque page
 // Code de sortie : 0 si tout est propre, 1 sinon.
 const fs = require('fs');
 const path = require('path');
-const { findChrome } = require('./chrome');
-const { chromium } = require('playwright-core');
+const { launchBrowser } = require('./browser');
 
 const args = process.argv.slice(2);
 const opt = (name, def) => { const i = args.indexOf('--' + name); return i >= 0 ? args[i + 1] : def; };
@@ -22,7 +21,7 @@ if (only !== 'graphics') for (const p of pkg.nodecg.dashboardPanels) pages.push(
 
 (async () => {
 	try { await fetch(base); } catch { console.error(`Serveur injoignable sur ${base} — lance d'abord start.bat (ou npm start).`); process.exit(1); }
-	const browser = await chromium.launch({ executablePath: findChrome(), headless: true });
+	const { browser } = await launchBrowser();
 	let bad = 0;
 	for (const p of pages) {
 		// Un panneau ouvert hors du tableau de bord a besoin de ?standalone=true pour recevoir l'API NodeCG

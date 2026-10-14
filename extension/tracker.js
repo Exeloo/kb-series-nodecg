@@ -1,6 +1,6 @@
 // Stats joueur tracker.gg : normalisation du JSON brut de l'API et stockage.
 // tracker.gg bloque les requêtes serveur (Cloudflare, 403) : le JSON est récupéré dans le navigateur de l'utilisateur
-// (extension Chrome compagnon, favori ou copier-coller) puis envoyé à la route POST tracker-import (tracker-routes.js).
+// (extension compagnon Chrome / Edge / Firefox, favori ou copier-coller) puis envoyé à la route POST tracker-import (tracker-routes.js).
 // Replicant : playerProfiles { [riotId en minuscules]: profil normalisé } ; JSON bruts gardés dans db/tracker/.
 //   normalize(raw, playlist) → profil (lève une erreur lisible si le JSON est inutilisable)
 const fs = require('fs');

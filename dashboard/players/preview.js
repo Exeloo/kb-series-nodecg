@@ -1,11 +1,13 @@
 // Panneau « Équipes & Joueurs » : aperçu fusionné (KB.player = ce que verront les overlays) et import tracker.gg.
-// Trois façons d'importer : extension Chrome compagnon (KBI.request), favori « ⇪ Envoyer à NodeCG » (KBI.bookmarklet),
+// Trois façons d'importer : extension compagnon Chrome / Edge / Firefox (KBI.request), favori « ⇪ Envoyer à NodeCG » (KBI.bookmarklet),
 // copier-coller du JSON de l'API (route POST /valorant-tournament/tracker-import). État lu sur GET …/tracker-status.
 (function (P) {
 	const $ = KB.$;
 	const esc = KB.esc;
 
-	// ---------- Extension Chrome compagnon ----------
+	// ---------- Extension compagnon (Chrome, Edge, Firefox) ----------
+	// Le guide d'installation affiché dépend du navigateur de la régie (l'extension doit être dans ce même navigateur)
+	const FIREFOX = /firefox/i.test(navigator.userAgent);
 	const helpLink = '<a href="/valorant-tournament/tracker-extension" target="_blank">Guide d\'installation</a>';
 	let extOk = null;
 	let extDir = null;
@@ -16,8 +18,10 @@
 			? `<b>Extension tracker.gg détectée</b>${KBI.extensionVersion() ? ' v' + esc(KBI.extensionVersion()) : ''} · import auto`
 			: extOk === false ? `<b>Extension non détectée</b> · import via le favori · ${helpLink}` : 'Recherche de l\'extension…';
 		$('#extHelp').innerHTML = extOk
-			? `<b>Extension Chrome active :</b> « + » d'une colonne ou « Importer depuis tracker.gg » sur la fiche ouvre tracker.gg en arrière-plan, récupère les stats et referme l'onglet. ${helpLink}`
-			: `<b>Import en 1 clic :</b> installe l'extension Chrome compagnon (dossier <code class="path">${esc(extDir || 'tools/tracker-extension')}</code>, à charger en « non empaquetée » depuis <code class="path">chrome://extensions</code>), puis recharge la régie. ${helpLink}. En attendant, utilise le favori ci-dessous.`;
+			? `<b>Extension active :</b> « + » d'une colonne ou « Importer depuis tracker.gg » sur la fiche ouvre tracker.gg en arrière-plan, récupère les stats et referme l'onglet. ${helpLink}`
+			: FIREFOX
+				? `<b>Import en 1 clic :</b> installe l'extension compagnon dans Firefox (fichier <code class="path">manifest.json</code> du dossier <code class="path">${esc(extDir || 'tools/tracker-extension')}</code>, à charger depuis <code class="path">about:debugging</code>, ou version signée), autorise son accès aux sites (clic sur son icône), puis recharge la régie. ${helpLink}. En attendant, utilise le favori ci-dessous.`
+				: `<b>Import en 1 clic :</b> installe l'extension compagnon (dossier <code class="path">${esc(extDir || 'tools/tracker-extension')}</code>, à charger en « non empaquetée » depuis <code class="path">chrome://extensions</code>, ou <code class="path">edge://extensions</code>), puis recharge la régie. ${helpLink}. En attendant, utilise le favori ci-dessous.`;
 	}
 	fetch('/valorant-tournament/tracker-status').then((r) => r.json()).then((j) => { extDir = j.extension && j.extension.dir; renderExt(); }).catch(() => {});
 	$('#extRetry').onclick = checkExt;

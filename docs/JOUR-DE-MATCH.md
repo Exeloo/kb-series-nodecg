@@ -8,7 +8,7 @@ Pour le régisseur : la checklist à imprimer, de la veille au soir jusqu'à la 
 - [ ] **Joueurs** : `Pseudo#TAG` dans le champ **+** en bas de la colonne de chaque équipe ; import tracker.gg ([3 méthodes](REGIE.md#importer-les-joueurs-depuis-trackergg)). Rôle de chaque joueur. Les 5 premiers = titulaires.
 - [ ] **Photos** (si tu en as) : **ASSETS** → « Photos joueurs » ; puis fiche du joueur → **Photo**.
 - [ ] **Profils manquants** : panneau **Stats Joueur** → section **Profils manquants** vide (ou stats saisies à la main).
-- [ ] **Casters** : panneau **Live** → **Casters** → **Enregistrer**.
+- [ ] **Host et casters** : panneau **Lower thirds** → **Host et casters** (rôle, nom, pseudo) → **Enregistrer** ; vérifie la répartition du **Plateau** (gauche / centre / droite).
 - [ ] **Planning** : panneau **Écrans** → **Planning** (heures, équipes) → **Trier par heure**.
 - [ ] **Infos tournoi** et textes des écrans : panneau **Écrans**.
 - [ ] **Bracket** : panneau **Bracket & Groupes** (groupes, équipes, quarts).
@@ -24,20 +24,21 @@ Pour le régisseur : la checklist à imprimer, de la veille au soir jusqu'à la 
 - [ ] Panneau **Données** → **5. Réglages** → **décoche** « Recharger automatiquement les overlays quand leur code change ».
 - [ ] OBS ouvert, source `stream.html` visible, caméras en place (voir [OBS.md](OBS.md)).
 - [ ] Panneau **Match** : **Phase**, **Format**, **Équipe A**, **Équipe B**.
-- [ ] Panneau **Veto des maps** → **Format du veto & pool de maps** : bon préréglage (**Appliquer**) et bon pool.
+- [ ] Panneau **Veto des maps** → **Paramètres du veto** : bon format (**BO1** / **BO3** / **BO5**), bonne équipe qui commence, bonnes **maps en rotation** ; relis l'ordre affiché.
 - [ ] Panneau **Écrans** → **Compte à rebours** : **Lancer (minutes)** ou **Jusqu'à cette heure**.
 - [ ] **Régie** → scène **Bientôt**.
-- [ ] Ticker : messages à jour (panneau **Live** → **Enregistrer le ticker**).
+- [ ] Ticker : messages à jour (panneau **Ticker défilant** → **Enregistrer le ticker**).
 
 ## Pendant un match
 1. **Veto** : panneau **Veto des maps** → **AFFICHER** sur **Veto des maps** ; clique les maps au fil des bans et picks ; choisis les côtés (**… en ATTAQUE** / **… en DÉFENSE**).
+   Ou laisse les équipes le faire : **Liens pour les équipes** → **Copier** le lien de chaque équipe et envoie-le-lui (même réseau que la régie). Tu peux toujours corriger depuis le panneau.
 2. **Récap** : **AFFICHER** sur **Récap du veto**.
 3. **Maps du match** : panneau **Match** → **Remplir depuis le veto** ; la map 1 doit porter le bouton doré **Map en cours** (sinon clique **Définir en cours** sur sa ligne).
 4. **Versus** : **AFFICHER** sur **Versus** (Régie ou panneau Match).
 5. **Agents** : panneau **Match** → **Agents joués par map** (map 1).
 6. **Intro de map** : panneau **Maps & Transitions** → **Intro de map** (menu **Map** sur « Auto — map courante ») → **AFFICHER**.
 7. **Retour au jeu** : **Régie** → **▶ LANCER LA TRANSITION** vers **Tout masquer · retour au jeu** (ou le bouton **Tout masquer · retour au jeu** sans transition).
-8. **Pendant la map** : scores dans le tableau du panneau **Match** (**Score A**, **Score B**) ; lower thirds et ticker depuis la Régie ou le panneau Live.
+8. **Pendant la map** : scores dans le tableau du panneau **Match** (**Score A**, **Score B**) ; lower thirds et ticker depuis la Régie ou les panneaux Lower thirds et Ticker.
 9. **Fin de la map** : panneau **Match** → **Terminer** sur la ligne de la map (vainqueur selon le score).
    N'utilise **pas** en plus le **+1** du panneau Live pour la même map : il compterait une map de plus.
 10. **Résultat** : panneau **Maps & Transitions** → **Résultat de map** (map en « Auto », choisis le **MVP**) → **AFFICHER**.

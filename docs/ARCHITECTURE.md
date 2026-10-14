@@ -23,13 +23,14 @@ extension/               serveur du bundle
   state.js               replicants coeur + cache valorant-api.com
   tracker.js             normalisation d'un JSON tracker.gg → profil (playerProfiles), JSON brut dans db/tracker/
   tracker-routes.js      routes HTTP de l'import tracker.gg (+ static/ : tracker-receiver.html, tracker-guide.html)
+  veto-teams.js          liens de veto envoyés aux équipes : routes HTTP, contrôle des tours (+ static/veto-team.html)
   live.js maps.js match.js player.js bracket.js scenes.js   replicants et logique de chaque partie
   data-admin.js          réinitialisation par catégories, liste et restauration des sauvegardes
   data-transfer.js       export / import d'un fichier complet (données + assets en base64)
   test-data.js           données de test (aucun joueur créé)
   dev-reload.js          rechargement automatique des overlays quand leur code change
 shared/                  code commun pages + serveur, thème, polices (fonts/, licence OFL), images (img/)
-tools/                   outils Node (check, shot, export-stinger, chrome, patch-deps, docker-start.sh) + tracker-extension/
+tools/                   outils Node (check, shot, export-stinger, browser, pack-extension, patch-deps, docker-start.sh) + tracker-extension/ (extension Chrome / Edge / Firefox)
 docs/                    documentation
 start.bat, start-reseau.bat   lanceurs Windows (ASCII, CRLF)
 Dockerfile, docker-compose.yml, .env.example, .railwayignore, .dockerignore   mise en ligne (docs/DEPLOIEMENT.md)
@@ -47,20 +48,22 @@ Les replicants sont persistés par NodeCG dans `db/` (sauf mention). « Défaut 
 | `teams` | `{ [id]: { id, name, tag, logo, color, players: [{ riotId, role }] } }` | `state.js`, `test-data.js` | Équipes & Joueurs | presque tous | `shared/defaults.js` |
 | `match` | Phase, format, équipes A/B, `swap`, `currentMap`, `maps[]` (scores, vainqueur, statut, `picks`) | `state.js`, `live.js` (`live:series`), `test-data.js` | Match, Live, Équipes & Joueurs (renommage) | versus, veto, maps, joueurs, brb, starting, dual-cam, transition | `shared/defaults.js` |
 | `veto` | Pool + étapes jouées | `state.js`, `test-data.js` | Veto des maps | veto, veto-recap, map-intro | `shared/defaults.js` |
-| `matchVeto` | Déroulé prévu du veto (préréglage + séquence) | `match.js` | Veto des maps | veto | `shared/match.js` (`MATCH_DEFAULTS`) |
+| `matchVeto` | Déroulé prévu du veto : `{ format, first, custom, sequence }`. `format` suit `match.format` (dans les deux sens) ; sans `custom`, `sequence` est recalculée (`KBMatch.buildSequence`) quand `format`, `first` ou la taille de `veto.pool` change | `match.js` | Veto des maps | veto | `shared/match.js` (`MATCH_DEFAULTS`) |
+| `vetoTeams` | `{ open, tokens: { A, B } }` : pages équipes actives ou en pause, jetons des liens | `veto-teams.js` | Veto des maps | — | `extension/veto-teams.js` |
+| `vetoTeamsInfo` | Non persisté : `{ urls, lan, online: { A, B } }` (adresses réseau du serveur, pages équipes ouvertes) | `veto-teams.js` | Veto des maps | — | `extension/veto-teams.js` |
 | `matchGraphics` | Visibilité versus / veto / vetoRecap | `match.js` (complète une ancienne valeur) | via `KBO` | versus, veto, veto-recap | `shared/match.js` |
 | `playerData` | Fiches saisies à la main (priment), clé = riotId en minuscules | `state.js` (migre l'ancien `playerPhotos`) | Équipes & Joueurs | via `KB.player` | `shared/defaults.js` |
 | `playerProfiles` | Profils tracker.gg normalisés | `tracker.js` (route d'import) | Équipes & Joueurs, Stats Joueur (suppression) | via `KB.player` | `shared/defaults.js` |
-| `casters` | `[{ name, handle }]` | `state.js` | Live | lower-third (source « caster ») | `shared/defaults.js` |
+| `casters` | Intervenants `[{ name, handle, role }]`, `role` : `caster` \| `host` (absent = caster) | `state.js` | Lower thirds, Régie | lower-third (source « caster ») | `shared/defaults.js` |
 | `schedule` | Planning du jour | `state.js`, `test-data.js` | Écrans | schedule, starting, brb, ending | `shared/defaults.js` |
 | `countdown` | `{ endsAt, label }` | `state.js`, `test-data.js` | Écrans | starting, brb | `shared/defaults.js` |
 | `streamScene` | Scène de fond de `stream.html` + mode de passage | `state.js`, `lib/backup.js` (remise sur « none ») | Régie | stream | `shared/defaults.js` |
-| `transition` | Déclencheur du stinger `{ at, map }` | `state.js` | Régie, Maps & Transitions | transition | `shared/defaults.js` |
+| `transition` | Déclencheur du stinger `{ at, map, kind }` (`kind` : `logo` \| `map` \| `replay`, absent = déduit de `map` — `KBM.trKind`) | `state.js` | Régie, Maps & Transitions | transition | `shared/defaults.js` |
 | `valorantData` | Cache maps / agents de valorant-api.com | `state.js` | — | presque tous | `shared/defaults.js` |
-| `liveLowerThird` | `{ left, right }` : contenu + visibilité ; masquage auto après `duration` | `live.js` | Régie, Live (`KBLT`, `KBO`) | lower-third | `shared/live.js` (`LIVE.defaults`) |
-| `liveLowerThirdPresets` | Presets de lower third | `live.js` | Live, Régie (`KBLT`) | — | `shared/live.js` |
-| `liveTicker` | Visibilité, messages, vitesse, partenaires | `live.js` | Live, Régie | ticker | `shared/live.js` |
-| `liveDualCam` | Étiquettes et bandeau de l'écran 50/50 | `live.js` | Live | dual-cam | `shared/live.js` |
+| `liveLowerThird` | `{ left, center, right }` : contenu + visibilité ; masquage auto après `duration` (`hideAt` : heure prévue, posée par le serveur) ; `center` ajouté au démarrage s'il manque | `live.js` | Régie, Lower thirds (`KBLT`, `KBO`) | lower-third | `shared/live.js` (`LIVE.defaults`) |
+| `liveLowerThirdPresets` | Presets de lower third | `live.js` | Lower thirds, Régie (`KBLT`) | — | `shared/live.js` |
+| `liveTicker` | Visibilité, messages, vitesse, partenaires | `live.js` | Ticker, Régie | ticker | `shared/live.js` |
+| `liveDualCam` | Étiquettes et bandeau de l'écran 50/50 | `live.js` | Écran 50/50 | dual-cam | `shared/live.js` |
 | `mapsGraphics` | Visibilité + map / MVP de intro, series, result | `maps.js` | Maps & Transitions, Régie, Équipes & Joueurs (renommage) | map-intro, map-series, map-result | `shared/maps.js` (`KBM.DEFAULT`) |
 | `mapsTransitionSettings` | Réglages du stinger + préréglages perso | `maps.js` | Maps & Transitions | transition | `shared/maps.js` (`KBM.TRANSITION_DEFAULT`) |
 | `mapsExport` | État de l'export PNG | `maps.js` | — | — (lu par Maps & Transitions) | `extension/maps.js` |
@@ -81,13 +84,14 @@ Les sauvegardes, l'export et l'import portent sur la liste `NAMES` de `extension
 |---|---|---|---|
 | `valorantData:refresh` | — | `{ maps, agents }` (nombres) | `state.js` |
 | `live:series` | `{ team: 'A'\|'B', delta: 1\|-1 }` | `{ A, B, currentMap }` | `live.js` |
-| `maps:exportStinger` | `{ map }` | `{ started: true }` ; progression dans `mapsExport` | `maps.js` |
+| `maps:exportStinger` | `{ map, kind }` | `{ started: true }` ; progression dans `mapsExport` | `maps.js` |
 | `bracket:reset` | — | `{ backup }` | `bracket.js` |
 | `bracket:fillQuarters` | — | `[[a, b] ×4]` | `bracket.js` |
 | `data:clearAll` | `{ teams, players, match, schedule, bracket, overlays, texts }` (booléens) | `{ backup }` | `data-admin.js` |
 | `data:backups` | — | noms de fichiers, plus récent d'abord | `data-admin.js` |
 | `data:restore` | `{ file }` | `{ backup }` | `data-admin.js` |
 | `data:testData` | — | `{ backup }` | `test-data.js` |
+| `vetoTeams:newLinks` | — | `{ tokens }` (les anciens liens ne marchent plus) | `veto-teams.js` |
 
 Une erreur levée dans un handler est renvoyée au panneau comme message d'erreur (texte) ; `TypeError` / `ReferenceError` sont journalisées avec la pile.
 
@@ -100,8 +104,12 @@ Une erreur levée dans un handler est renvoyée au panneau comme message d'erreu
 | `GET /valorant-tournament/tracker-receiver` | aucune | Fenêtre ouverte par le favori | `tracker-routes.js` |
 | `GET /valorant-tournament/tracker-status` | aucune (CORS ouvert ; détails seulement si connecté) | État lu par les panneaux et la popup de l'extension | `tracker-routes.js` |
 | `GET /valorant-tournament/tracker-extension` | connexion | Guide de l'extension (README rendu en HTML) | `tracker-routes.js` |
+| `GET /valorant-tournament/veto/:jeton` | jeton du lien (pas de connexion : envoyé aux équipes) | Page de veto d'une équipe (`static/veto-team.html`, sans NodeCG) | `veto-teams.js` |
+| `GET /valorant-tournament/veto/:jeton/state?v=` | jeton | État vu par l'équipe, interrogé chaque seconde ; 204 si la version `v` est à jour | `veto-teams.js` |
+| `POST /valorant-tournament/veto/:jeton/action` | jeton + même origine, 4 ko | `{ type: 'map', map, index }` ou `{ type: 'side', side, index }` ; refusé (409) hors tour ou si `index` est dépassé | `veto-teams.js` |
+| `GET /valorant-tournament/veto-assets/…` | aucune | Polices et logo de la page équipe | `veto-teams.js` |
 
-`nodecg.mount` n'applique aucune authentification : toute route ajoutée doit utiliser `requireLogin` (et `sameOrigin` pour un POST), voir `extension/lib/http.js`. « Connexion » n'a d'effet que si un mot de passe est configuré.
+`nodecg.mount` n'applique aucune authentification : toute route ajoutée doit utiliser `requireLogin` (et `sameOrigin` pour un POST), voir `extension/lib/http.js`. Exception voulue : les pages de veto des équipes, protégées par leur jeton et limitées au veto de leur équipe. Pas de connexion permanente (SSE, WebSocket) sur ces routes : NodeCG attendrait sa fermeture pour s'arrêter. « Connexion » n'a d'effet que si un mot de passe est configuré.
 
 ## Le socle partagé (`shared/`)
 | Objet | Fichier | Rôle |
@@ -110,14 +118,14 @@ Une erreur levée dans un handler est renvoyée au panneau comme message d'erreu
 | `KBDefaults` | `defaults.js` | Valeurs par défaut des replicants coeur (fonctions qui renvoient un objet neuf), `DEFAULT_POOL`, `COUNTDOWN_LABEL`. UMD. |
 | `KBD` | `dash.js` | Outils des panneaux : `flash`, `confirm` / `arm` (2 clics), `deferWhileEditing`, `fillSelect`, `teamOptions`, `getPath` / `setPath`, `bindDirty` (brouillon + « non appliqué »). |
 | `KBO` | `overlays.js` | Registre unique des 13 overlays pilotables (`ITEMS`) : `show` / `hide` / `toggle` / `hideAll`, exclusivité « un seul plein écran », bouton et ligne **AFFICHER / ● À L'ANTENNE**. N'écrit que les booléens `visible`. |
-| `KBLT` | `lt-form.js` | Formulaire des lower thirds, commun à la Régie (`compact`) et au Live. |
+| `KBLT` | `lt-form.js` | Formulaire des lower thirds (gauche / centre / droite), commun à la Régie (`compact`) et au panneau Lower thirds ; `mountCrew` : plateau host / casters ; `mountMonitor` : moniteur « À l'antenne » (aperçu réel + état). |
 | `KBI` | `tracker-import.js` | Import tracker.gg côté navigateur : `parseRiotId`, `request` (extension sinon onglet manuel), `hasExtension`, `bookmarklet`, `trackerUrl`, `apiUrl`. Indépendant de `kb.js`. |
 | `KBM` | `maps.js` | Partie maps : `mapsGraphics`, réglages et modèle géométrique du stinger (`trSettings`, `stingerTiming`, `stingerModel`, `TRANSITION_*`), helpers des écrans maps (`mapAt`, `patch`, `flashChanges`…). UMD. |
 | `KBMatch` | `match.js` | Préréglages de veto, `MATCH_DEFAULTS`, état du veto, phases. UMD. |
 | `KBScenes` | `scenes.js` | Écrans de fond : `DEFAULT_TEXTS`, `DEFAULT_ROTATION`, `ROTATION_TYPES`, helpers (compte à rebours, prochain match, ambiance). UMD (côté Node : les seules constantes). |
 | `KBP` | `player.js` | Défauts `STATS_DEFAULT`, `DUEL_DEFAULT`, stats du duel, particules. UMD. |
 | `KBB` | `bracket.js` | Bracket : `defaultBracket`, `emptyMatch`, `standings`, `propagate`, `quarterPairs`, `GRAPHICS_DEFAULT`. UMD, utilisé aussi par le serveur. |
-| `LIVE` | `live.js` | Défauts `live*`, styles et presets automatiques des lower thirds, géométrie du 50/50 (`dualFrames`). UMD. |
+| `LIVE` | `live.js` | Défauts `live*`, emplacements (`SIDES`), rôles des intervenants (`ROLES`), styles et presets automatiques des lower thirds, géométrie du 50/50 (`dualFrames`). UMD. |
 
 Feuilles de style : `theme.css` (overlays, importe `fonts.css`), `dashboard.css` (panneaux), `maps.css`, `match.css`, `scenes.css` (par partie). Ordre de chargement dans un panneau : `kb.js` → modules de partie → `dash.js` → `overlays.js` → `lt-form.js`.
 
@@ -166,13 +174,16 @@ Références : `Medias/` (affiche et logo, hors git) et `shared/theme.css`, à l
 | Commande | Effet |
 |---|---|
 | `npm run lint` | ESLint (`eslint.config.js`) : erreurs réelles uniquement, aucune règle de style. Lancé aussi par la CI GitHub (`.github/workflows/ci.yml`). |
-| `npm run check` | Ouvre chaque overlay et chaque panneau dans Chrome headless (Playwright) et signale erreurs console, exceptions, fichiers 4xx/5xx. Serveur lancé. Options : `--base <url>`, `--shots <dossier>`, `--only graphics\|dashboard`, `--wait <ms>`. |
+| `npm run check` | Ouvre chaque overlay et chaque panneau dans un navigateur invisible (Playwright) et signale erreurs console, exceptions, fichiers 4xx/5xx. Serveur lancé. Options : `--base <url>`, `--shots <dossier>`, `--only graphics\|dashboard`, `--wait <ms>`. |
 | `npm run verify` | `lint` puis `check`. |
 | `npm run shot -- <url> <sortie.png>` | Capture d'une page (`--wait`, `--w`, `--h`, `--eval`). Panneau hors tableau de bord : ajouter `?standalone=true` à l'URL. |
-| `npm run export:stinger` | Exporte `transition.html` en PNG (`--map`, `--fps`, `--out`, `--host`, `--settings`) dans `exports/stinger[-<map>]/` + `info.txt`. Serveur lancé. |
+| `npm run export:stinger` | Exporte `transition.html` en PNG (`--map` ou `--replay`, `--fps`, `--out`, `--host`, `--settings`) dans `exports/stinger[-<map>\|-replay]/` + `info.txt`. Serveur lancé. |
+| `npm run pack:extension` | Empaquette `tools/tracker-extension` en `exports/kb-tracker-import-<version>.zip` (à faire signer sur addons.mozilla.org pour Firefox). |
 | `npm run dev` | Serveur redémarré quand `extension/` ou `package.json` change. |
 
-Chrome (ou Edge) est trouvé par `tools/chrome.js` ; pour forcer un chemin : variable d'environnement `CHROME_PATH`. `playwright-core` et `sharp` sont des dépendances de développement : absentes de l'image Docker, d'où l'export impossible en ligne.
+Le navigateur des outils est trouvé et lancé par `tools/browser.js` : Chrome, puis Edge, puis Firefox (Firefox standard piloté en WebDriver BiDi, canal Playwright `moz-firefox`). Pour forcer : `CHROME_PATH`, `FIREFOX_PATH`, ou `KB_BROWSER=firefox`. Firefox ne sait pas capturer sans fond : `captureTransparent` capture chaque image sur fond noir puis blanc et en déduit l'alpha (export 2× plus lent). Firefox en snap (Ubuntu) : profil temporaire placé dans `~/snap/firefox/common/tmp`. `playwright-core` et `sharp` sont des dépendances de développement : absentes de l'image Docker, d'où l'export impossible en ligne.
+
+L'extension tracker.gg a un seul `manifest.json` pour Chrome et Firefox : `background.service_worker` (Chrome) et `background.scripts` (Firefox), `browser_specific_settings.gecko` (identifiant, Firefox 140+). Firefox refuse les motifs d'adresse avec hôte joker et port (`http://*:9090/*`) : la régie est reconnue par `*://*/bundles/valorant-tournament/*`. Sous Firefox, l'envoi à la régie passe par `content.fetch` (requête au nom de la page) et l'accès aux sites peut devoir être accordé depuis la popup.
 
 ## Le correctif `tools/patch-deps.js`
 Lancé par `postinstall` après chaque `npm install` / `npm ci`. `hasha` 5 (utilisé par NodeCG pour les assets) plante sous Node 24 quand son worker répond pour une tâche déjà résolue (« Cannot read properties of undefined (reading 'resolve') ») : le script ajoute une garde dans `node_modules/hasha/index.js`. **Ne pas le retirer** : sans lui, l'envoi de fichiers dans ASSETS peut faire tomber le serveur. S'il n'arrive plus à s'appliquer (nouvelle version de `hasha`), il affiche un avertissement très visible au lieu d'échouer.

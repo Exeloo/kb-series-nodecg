@@ -15,13 +15,22 @@
 (function () {
 	const KBO = {};
 	const playerName = (id) => (id ? (KB.player(id) || {}).name || String(id).split('#')[0] : '?');
+	// Lower third : nom de l'intervenant suivi (host, caster) ou titre saisi
+	const ltHint = (s) => {
+		if (s && s.source === 'caster') {
+			const c = (KB.rep.casters.value || [])[+s.casterIndex || 0];
+			return c ? `${c.role === 'host' ? 'Host' : 'Caster'} : ${c.name || '(sans nom)'}` : 'Intervenant supprimé';
+		}
+		return (s && s.title) || 'Contenu à régler dans Live';
+	};
 
-	// id = nom du fichier dans graphics/ (les deux lower thirds partagent lower-third.html)
+	// id = nom du fichier dans graphics/ (les trois lower thirds partagent lower-third.html)
 	// rep + path = booléen de visibilité dans le replicant (déclarés dans extension/*.js)
 	// fullscreen = écran plein qui doit être seul à l'antenne ; hint(v) = précision sous le nom ; needs(v) = faux si l'overlay n'a rien à afficher
 	KBO.ITEMS = [
-		{ id: 'lower-third-left', label: 'Lower third gauche', group: 'En jeu (transparent)', rep: 'liveLowerThird', path: ['left', 'visible'], hint: (v) => (v.left && v.left.title) || 'Contenu à régler dans Live' },
-		{ id: 'lower-third-right', label: 'Lower third droite', group: 'En jeu (transparent)', rep: 'liveLowerThird', path: ['right', 'visible'], hint: (v) => (v.right && v.right.title) || 'Contenu à régler dans Live' },
+		{ id: 'lower-third-left', label: 'Lower third gauche', group: 'En jeu (transparent)', rep: 'liveLowerThird', path: ['left', 'visible'], hint: (v) => ltHint(v.left) },
+		{ id: 'lower-third-center', label: 'Lower third centre', group: 'En jeu (transparent)', rep: 'liveLowerThird', path: ['center', 'visible'], hint: (v) => ltHint(v.center) },
+		{ id: 'lower-third-right', label: 'Lower third droite', group: 'En jeu (transparent)', rep: 'liveLowerThird', path: ['right', 'visible'], hint: (v) => ltHint(v.right) },
 		{ id: 'ticker', label: 'Ticker', group: 'En jeu (transparent)', rep: 'liveTicker', path: ['visible'] },
 		{ id: 'versus', label: 'Versus', group: 'Match', rep: 'matchGraphics', path: ['versus', 'visible'], fullscreen: true },
 		{ id: 'veto', label: 'Veto des maps', group: 'Match', rep: 'matchGraphics', path: ['veto', 'visible'], fullscreen: true },

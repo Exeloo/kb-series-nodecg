@@ -5,6 +5,7 @@
 	<title>Maps &amp; Transitions</title>
 	<!--
 		Panneau Maps & Transitions : réglages du stinger (aperçu local, préréglages, export PNG), lancement de la transition
+		(logo seul, logo + map ou replay)
 		et écrans maps (intro, série, résultat + MVP). Écrit `mapsTransitionSettings`, `transition` (seuls les boutons « ▶ Transition »)
 		et `mapsGraphics` (map choisie, MVP ; visibilité via KBO). Message envoyé : `maps:exportStinger` (progression dans `mapsExport`).
 	-->
@@ -79,7 +80,7 @@
 			<span id="pv-time">0 / 0 ms</span>
 		</div>
 		<div class="row pv-opts">
-			<select id="tr-mapsel" title="Map affichée pendant la transition (aperçu, test et antenne)" aria-label="Map affichée pendant la transition"></select>
+			<select id="tr-mapsel" title="Contenu de la transition : logo seul, replay ou map (aperçu, test et antenne)" aria-label="Contenu de la transition"></select>
 			<label class="shrink pv-auto"><input type="checkbox" id="pv-auto" checked> relance auto</label>
 		</div>
 		<div id="pv-info"></div>
@@ -90,6 +91,7 @@
 		<div class="row">
 			<button class="primary big" id="tr-logo">▶ Transition logo</button>
 			<button class="gold big" id="tr-map">▶ Transition + map</button>
+			<button class="primary big" id="tr-replay" title="Transition avec le titre « REPLAY »">▶ Replay</button>
 		</div>
 		<div class="hint" id="tr-hint"></div>
 		<div class="msg" id="tr-msg"></div>
@@ -107,6 +109,7 @@
 		<div id="sec-durees"></div>
 		<div class="tl" id="tl-logo"></div>
 		<div class="tl" id="tl-map"></div>
+		<div class="tl" id="tl-replay"></div>
 	</details>
 	<details class="fold">
 		<summary>Volets</summary>
@@ -128,6 +131,7 @@
 		<div class="row">
 			<button id="ex-logo">Exporter (logo)</button>
 			<button id="ex-map">Exporter + map choisie</button>
+			<button id="ex-replay">Exporter (replay)</button>
 		</div>
 		<div class="timing hidden" id="ex-bar"><i id="ex-fill"></i></div>
 		<div class="msg" id="ex-msg"></div>
@@ -189,6 +193,7 @@
 				['coverIn', 'Entrée', 'du 1er volet jusqu’à l’écran couvert', 'ms'],
 				['holdLogo', 'Tenue — logo seul', 'temps écran couvert sans map', 'ms'],
 				['holdMap', 'Tenue — avec map', 'temps passé sur la map', 'ms'],
+				['holdReplay', 'Tenue — replay', 'temps passé sur le titre « REPLAY »', 'ms'],
 				['revealOut', 'Sortie', 'volets qui découvrent la nouvelle scène', 'ms'],
 				['stagger', 'Décalage entre volets', '0 = tous ensemble', 'ms'],
 				['speed', 'Vitesse globale', '×0,5 lent … ×3 rapide (multiplie tout)', '×'],
@@ -295,11 +300,12 @@
 		const bar = (t) => `<div class="timing"><i style="--from:${pct(t.coveredFrom, t)};--w:${pct(t.coveredMs, t)}"></i><b style="--at:${pct(t.cut, t)}"></b></div>`;
 		const line = (lbl, t) => `${lbl} : total <b>${t.duration} ms</b> · couvert de <b>${t.coveredFrom}</b> à <b>${t.coveredTo} ms</b> (${t.coveredMs} ms) · coupe à <b>${t.cut} ms</b>${t.covered ? '' : ' <span class="warn">— jamais totalement couvert !</span>'}${bar(t)}`;
 		function renderTimings() {
-			const tl = KBM.stingerTiming(draft, false), tm = KBM.stingerTiming(draft, true);
+			const tl = KBM.stingerTiming(draft, 'logo'), tm = KBM.stingerTiming(draft, 'map'), tr = KBM.stingerTiming(draft, 'replay');
 			$('#tl-logo').innerHTML = line('Logo seul', tl);
 			$('#tl-map').innerHTML = line('Avec map', tm);
+			$('#tl-replay').innerHTML = line('Replay', tr);
 			$('#tr-hint').innerHTML = `Avec <span class="mono">stream.html</span>, rien à régler dans OBS : la transition est déjà dedans et la régie agit toute seule au point de coupe.
-				Point de coupe (écran entièrement couvert) : <b>${tl.cut} ms</b> (logo) / <b>${tm.cut} ms</b> (avec map) après le clic — à reprendre si tu utilises le stinger exporté comme transition OBS.`;
+				Point de coupe (écran entièrement couvert) : <b>${tl.cut} ms</b> (logo) / <b>${tm.cut} ms</b> (avec map) / <b>${tr.cut} ms</b> (replay) après le clic — à reprendre si tu utilises le stinger exporté comme transition OBS.`;
 			renderPresets();
 		}
 
@@ -317,10 +323,14 @@
 		const fit = () => { frame.style.transform = `scale(${$('#pv').clientWidth / 1920})`; };
 		new ResizeObserver(fit).observe($('#pv')); fit();
 		const pvSend = (msg) => { if (pvReady) frame.contentWindow.postMessage({ type: 'kb-stinger', ...msg }, '*'); };
+		// Menu sous l'aperçu : '' = logo seul, REPLAY = replay, sinon nom de map
+		const REPLAY = '@replay';
+		const pvChoice = () => { const v = $('#tr-mapsel').value || ''; return v === REPLAY ? { kind: 'replay', map: null } : { kind: v ? 'map' : 'logo', map: v || null }; };
+		const KIND_INFO = { logo: 'logo seul', map: 'avec map', replay: 'replay' };
 		let pvT;
 		function pvLoad(autoplay) {
 			clearTimeout(pvT);
-			pvT = setTimeout(() => pvSend({ cmd: 'load', map: $('#tr-mapsel').value || null, settings: draft, autoplay: autoplay && $('#pv-auto').checked }), 120);
+			pvT = setTimeout(() => pvSend({ cmd: 'load', ...pvChoice(), settings: draft, autoplay: autoplay && $('#pv-auto').checked }), 120);
 		}
 		window.addEventListener('message', (e) => {
 			const d = e.data;
@@ -334,7 +344,7 @@
 				$('#pv-cov').style.left = (d.coveredFrom / d.duration * 100) + '%';
 				$('#pv-cov').style.width = ((d.coveredTo - d.coveredFrom) / d.duration * 100) + '%';
 				$('#pv-cut').style.left = (d.cut / d.duration * 100) + '%';
-				$('#pv-info').innerHTML = `Écran couvert de <b>${d.coveredFrom}</b> à <b>${d.coveredTo} ms</b> · coupe à <b>${d.cut} ms</b> · ${$('#tr-mapsel').value ? 'avec map' : 'logo seul'}${d.t >= d.coveredFrom && d.t <= d.coveredTo ? ' · <span class="covered">● couvert</span>' : ''}`;
+				$('#pv-info').innerHTML = `Écran couvert de <b>${d.coveredFrom}</b> à <b>${d.coveredTo} ms</b> · coupe à <b>${d.cut} ms</b> · ${KIND_INFO[d.kind] || 'logo seul'}${d.t >= d.coveredFrom && d.t <= d.coveredTo ? ' · <span class="covered">● couvert</span>' : ''}`;
 			}
 		});
 		$('#pv-play').onclick = () => pvSend({ cmd: 'play' });
@@ -345,37 +355,39 @@
 
 		NodeCG.waitForReplicants(trRep).then(() => { draft = KBM.trSettings(trRep.value); writeControls(draft); renderTimings(); pvLoad(true); });
 
-		// ---- Transition à l'antenne (seuls ces deux boutons déclenchent le replicant transition) ----
+		// ---- Transition à l'antenne (seuls ces trois boutons déclenchent le replicant transition) ----
 		function setGfx(part, patch) {
 			const v = KBM.cfg();
 			gfx.value = { ...v, [part]: { ...v[part], ...patch } };
 		}
 
 		// ---- Transition ----
-		$('#tr-logo').onclick = () => { KB.rep.transition.value = { at: Date.now(), map: null }; flash('Transition lancée (logo)'); };
+		$('#tr-logo').onclick = () => { KB.rep.transition.value = { at: Date.now(), map: null, kind: 'logo' }; flash('Transition lancée (logo)'); };
 		$('#tr-map').onclick = () => {
-			const map = $('#tr-mapsel').value || null;
-			KB.rep.transition.value = { at: Date.now(), map };
-			flash(map ? `Transition lancée : ${map}` : 'Transition lancée (logo)');
+			const { map } = pvChoice();
+			KB.rep.transition.value = { at: Date.now(), map, kind: map ? 'map' : 'logo' };
+			flash(map ? `Transition lancée : ${map}` : 'Transition lancée (logo) — choisis une map sous l’aperçu');
 		};
+		$('#tr-replay').onclick = () => { KB.rep.transition.value = { at: Date.now(), map: null, kind: 'replay' }; flash('Transition lancée (replay)'); };
 
 		// ---- Export PNG (valeur par défaut de mapsExport déclarée par extension/maps.js) ----
 		const exp = nodecg.Replicant('mapsExport');
-		const startExport = (map) => {
-			nodecg.sendMessage('maps:exportStinger', { map }).catch((e) => KBD.flash('ex-msg', e.message || String(e), 'err', 0));
+		const startExport = (map, kind) => {
+			nodecg.sendMessage('maps:exportStinger', { map, kind }).catch((e) => KBD.flash('ex-msg', e.message || String(e), 'err', 0));
 		};
-		$('#ex-logo').onclick = () => startExport(null);
-		$('#ex-map').onclick = () => startExport($('#tr-mapsel').value || null);
+		$('#ex-logo').onclick = () => startExport(null, 'logo');
+		$('#ex-map').onclick = () => startExport(pvChoice().map, 'map');
+		$('#ex-replay').onclick = () => startExport(null, 'replay');
 		exp.on('change', (v) => {
 			if (!v) return;
-			$('#ex-logo').disabled = $('#ex-map').disabled = !!v.running;
+			$('#ex-logo').disabled = $('#ex-map').disabled = $('#ex-replay').disabled = !!v.running;
 			$('#ex-bar').classList.toggle('hidden', !(v.running || v.path));
 			$('#ex-fill').style.width = (v.total ? (v.done / v.total) * 100 : 0) + '%';
-			if (v.running) KBD.flash('ex-msg', `Export${v.map ? ' ' + v.map : ''} en cours… ${v.done}/${v.total || '?'} images`, '', 0);
+			if (v.running) KBD.flash('ex-msg', `Export${v.kind === 'replay' ? ' replay' : v.map ? ' ' + v.map : ''} en cours… ${v.done}/${v.total || '?'} images`, '', 0);
 			else if (v.error) KBD.flash('ex-msg', v.error, 'err', 0);
 			else if (v.path) {
 				const m = KBD.flash('ex-msg', 'Terminé', 'ok', 0);
-				m.innerHTML = `Terminé : <span class="mono">${esc(v.path)}</span><br>${v.total} images · point de coupe ${KBM.stingerTiming(KBM.trSettings(), !!v.map).cut} ms (voir info.txt)`;
+				m.innerHTML = `Terminé : <span class="mono">${esc(v.path)}</span><br>${v.total} images · point de coupe ${KBM.stingerTiming(KBM.trSettings(), v.kind === 'replay' ? 'replay' : !!v.map).cut} ms (voir info.txt)`;
 			} else KBD.flash('ex-msg', '');
 		});
 
@@ -425,11 +437,11 @@
 			const series = (match.maps || []).map((m) => m.map).filter(Boolean);
 			const others = KB.mapNames().filter((n) => !series.includes(n));
 			const cur = KBM.mapAt(null, match);
-			const trHtml = `<option value="">— Aucune map (logo seul) —</option>` + (series.length ? `<optgroup label="Série">${series.map((n, i) => `<option value="${esc(n)}">Map ${i + 1} — ${esc(n)}</option>`).join('')}</optgroup>` : "")
+			const trHtml = `<option value="">— Aucune map (logo seul) —</option><option value="${REPLAY}">Replay</option>` + (series.length ? `<optgroup label="Série">${series.map((n, i) => `<option value="${esc(n)}">Map ${i + 1} — ${esc(n)}</option>`).join('')}</optgroup>` : "")
 				+ (others.length ? `<optgroup label="Autres maps">${others.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}</optgroup>` : '');
 			if (trHtml !== trHtmlShown) {
 				const prev = $('#tr-mapsel').value;
-				const keep = prev && (series.includes(prev) || others.includes(prev));
+				const keep = prev && (prev === REPLAY || series.includes(prev) || others.includes(prev));
 				if (KBD.fillSelect('#tr-mapsel', trHtml, keep ? prev : (cur && cur.entry.map) || series[0] || '')) trHtmlShown = trHtml;
 			}
 

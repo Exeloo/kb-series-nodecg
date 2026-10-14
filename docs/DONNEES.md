@@ -27,7 +27,7 @@ Une sauvegarde est écrite dans `db/backups/` juste **avant** chacune de ces op�
 
 Les 50 plus récentes sont gardées, les plus anciennes sont supprimées.
 
-**Ce qu'elle contient** : toutes les données de la régie : tournoi, équipes, fiches joueurs, profils tracker.gg, casters, planning, compte à rebours, match, veto (et son format), bracket, textes des écrans, rotation de la pause, ticker, lower thirds et leurs presets, réglages de la transition, écran 50/50, scène de fond et état d'affichage de chaque overlay.
+**Ce qu'elle contient** : toutes les données de la régie : tournoi, équipes, fiches joueurs, profils tracker.gg, host et casters, planning, compte à rebours, match, veto (et son format), bracket, textes des écrans, rotation de la pause, ticker, lower thirds et leurs presets, réglages de la transition, écran 50/50, scène de fond et état d'affichage de chaque overlay.
 
 **Ce qu'elle ne contient pas** :
 - les logos et photos (`assets/`) ;
@@ -74,7 +74,7 @@ Panneau **Données** → **4. Réinitialiser** : coche les catégories, puis **R
 | Match en cours et veto | Match (maps, scores, agents), veto, format et pool du veto. |
 | Planning et compte à rebours | Planning ; compte à rebours arrêté (son texte est gardé). |
 | Bracket | Groupes et phase finale. |
-| Textes (écrans, ticker, casters, lower thirds) | Textes des écrans et rotation de la pause remis par défaut, liste des casters vidée, messages du ticker vidés, textes des lower thirds et étiquettes du 50/50 remis à zéro. |
+| Textes (écrans, ticker, casters, lower thirds) | Textes des écrans et rotation de la pause remis par défaut, liste du host et des casters vidée, messages du ticker vidés, textes des lower thirds et étiquettes du 50/50 remis à zéro. |
 | Overlays (tout masquer, réglages d'affichage) | Tous les overlays masqués, scène sur **Jeu**, choix d'affichage remis à zéro (joueur des stats, duel, map et MVP des écrans maps). |
 
 Jamais effacés : les infos du tournoi (nom, dates, lieu…), les presets de lower third, les réglages de la transition, les logos et photos.

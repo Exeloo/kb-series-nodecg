@@ -66,9 +66,9 @@ Toutes les données (base, sauvegardes, logos, photos) vivent dans **un seul vol
    `https://regie.tondomaine.fr/bundles/valorant-tournament/graphics/stream.html?key=TA_CLE`
    Cette clé donne un **accès complet** à la régie : traite-la comme un mot de passe, ne la montre jamais à l'écran.
    En cas de fuite : **Reset Key** sur la même page, puis mets à jour l'URL dans OBS. Détails : [OBS.md](OBS.md#régie-protégée-par-un-mot-de-passe).
-3. **Extension Chrome** (import tracker.gg) : recharge-la dans `chrome://extensions` ; elle fonctionne sur le domaine
-   tant que tu es connecté à la régie dans le même Chrome. Refais aussi le favori « ⇪ Envoyer à NodeCG » depuis la régie en ligne.
-4. **Export PNG de la transition** : impossible en ligne (l'image n'embarque ni Chrome ni les outils d'export). Fais-le depuis la régie locale.
+3. **Extension d'import tracker.gg** (Chrome, Edge ou Firefox) : actualise-la (voir [son guide](../tools/tracker-extension/README.md#mettre-à-jour)) ; elle fonctionne sur le domaine
+   tant que tu es connecté à la régie dans le même navigateur. Refais aussi le favori « ⇪ Envoyer à NodeCG » depuis la régie en ligne.
+4. **Export PNG de la transition** : impossible en ligne (l'image n'embarque ni navigateur ni les outils d'export). Fais-le depuis la régie locale.
 
 ## En local, rien ne change
 `start.bat` : pas de mot de passe, http://localhost:9090, joignable seulement depuis ce PC. La configuration est dans `cfg/nodecg.js`

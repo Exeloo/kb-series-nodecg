@@ -1,18 +1,17 @@
-// Capture d'écran d'une page NodeCG (graphic ou panneau) avec Chrome headless.
+// Capture d'écran d'une page NodeCG (graphic ou panneau) avec un navigateur invisible (Chrome, Edge ou Firefox).
 // Usage : node tools/shot.js <url> <sortie.png> [--wait 2500] [--w 1920] [--h 1080] [--eval "js à exécuter avant d'attendre"]
 // Ex.   : node tools/shot.js http://localhost:9090/bundles/valorant-tournament/graphics/versus.html shots/versus.png --wait 2000
 //         (panneau hors tableau de bord : ajouter ?standalone=true à l'URL)
 const fs = require('fs');
 const path = require('path');
-const { chromium } = require('playwright-core');
-const { findChrome } = require('./chrome');
+const { launchBrowser } = require('./browser');
 
 const args = process.argv.slice(2);
 const opt = (name, def) => { const i = args.indexOf('--' + name); return i >= 0 ? args[i + 1] : def; };
 const [url, out] = args;
 if (!url || !out) { console.error('Usage: node tools/shot.js <url> <out.png> [--wait ms] [--w px] [--h px] [--eval js]'); process.exit(1); }
 (async () => {
-	const browser = await chromium.launch({ executablePath: findChrome(), headless: true });
+	const { browser } = await launchBrowser();
 	try {
 		const page = await browser.newPage({ viewport: { width: +opt('w', 1920), height: +opt('h', 1080) } });
 		const logs = [];

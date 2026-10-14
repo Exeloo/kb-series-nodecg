@@ -102,3 +102,32 @@ code.path { font-size: 11px; background: var(--bg); border: 1px solid var(--line
 /* Libellé lu seulement par les lecteurs d'écran ; indicateur « modifications non appliquées » */
 .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
 .lt-dirty { color: var(--gold); }
+
+/* Moniteur des lower thirds (KBLT.mountMonitor) : aperçu réel + état de chaque emplacement */
+.ltm-screen { position: relative; overflow: hidden; border-radius: 6px; border: 1px solid var(--line); background: #05081c url('img/poster-art.webp') center 75% / cover no-repeat; }
+.ltm-screen::before { content: ''; position: absolute; inset: 0; background: rgba(5, 8, 28, .72); }
+.ltm-screen iframe { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; pointer-events: none; background: transparent; }
+.ltm-tag { position: absolute; top: 4px; right: 6px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.ltm-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
+.ltm-slot { display: flex; flex-direction: column; gap: 4px; padding: 7px 8px; border-radius: 6px; background: var(--panel-2); border: 2px solid var(--line); min-width: 0; }
+.ltm-slot.on { border-color: var(--red); background: rgba(255, 70, 85, .1); }
+.ltm-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+.ltm-badge { font-weight: 700; color: var(--muted); white-space: nowrap; }
+.ltm-slot.on .ltm-badge { color: var(--red); animation: ltm-pulse 1.4s ease-in-out infinite; }
+@keyframes ltm-pulse { 50% { opacity: .45; } }
+.ltm-text { min-height: 46px; line-height: 1.25; min-width: 0; }
+.ltm-text > * { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ltm-text small { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); }
+.ltm-slot[data-style="gold"] .ltm-text small { color: var(--gold); }
+.ltm-slot[data-style="alert"] .ltm-text small { color: var(--red); }
+.ltm-text b { font-size: 14px; }
+.ltm-text span { font-size: 12px; color: var(--muted); }
+.ltm-slot:not(.on) .ltm-text { opacity: .6; }
+.ltm-foot { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: auto; font-size: 11px; color: var(--muted); }
+.ltm-foot button { padding: 4px 8px; font-size: 12px; flex: 0 0 auto; }
+@media (max-width: 420px) { .ltm-slots { grid-template-columns: 1fr; } }
+
+/* Plateau des lower thirds (KBLT.mountCrew) : gauche / centre / droite */
+.crew-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.crew-grid label { margin-top: 0; }
+.crew-grid select { width: 100%; min-width: 0; }

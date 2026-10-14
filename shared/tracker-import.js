@@ -2,7 +2,7 @@
 // <script src="../shared/tracker-import.js"></script>  (indépendant de kb.js)
 //
 //   KBI.parseRiotId(input)            → 'Pseudo#TAG' | null   (input = Riot ID ou lien tracker.gg)
-//   KBI.hasExtension()                → Promise<boolean>      (extension Chrome compagnon, réponse < 300 ms)
+//   KBI.hasExtension()                → Promise<boolean>      (extension compagnon Chrome / Edge / Firefox, réponse < 300 ms)
 //   KBI.request(input, opts?)         → Promise<{ ok, riotId, via: 'extension'|'manual', message }>
 //        opts.onStatus(msg)           : étapes de l'import par l'extension { state, message }
 //        opts.playlist                : 'competitive' (défaut)

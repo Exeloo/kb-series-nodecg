@@ -4,7 +4,8 @@
 	<meta charset="utf-8">
 	<title>KB SERIES · Transition (stinger)</title>
 	<!--
-		Stinger plein écran : volets (clip-path) qui couvrent puis découvrent l'écran, logo ou nom de la map au milieu.
+		Stinger plein écran : volets (clip-path) qui couvrent puis découvrent l'écran, logo, nom de la map ou titre « REPLAY » au milieu.
+		Trois types (KBM.trKind) : logo seul, logo + map, replay — même habillage, seul le titre change.
 		Toute l'animation est une fonction du temps : apply(t) — même rendu en direct, en aperçu et en export.
 		Replicants lus : transition (déclencheur), mapsTransitionSettings (réglages), match, teams, valorantData.
 		Déclenché par la régie et le panneau Maps & Transitions ; géométrie / couverture : KBM.stingerModel (shared/maps.js).
@@ -46,6 +47,9 @@
 		.title-bottom #maprule, .title-left #maprule { transform-origin: 0 50%; }
 		#mappick { display: flex; align-items: center; gap: 14px; margin-top: 18px; font: 700 22px var(--kb-ui); letter-spacing: .26em; text-transform: uppercase; color: var(--kb-text); opacity: 0; }
 		#mappick b { color: var(--kb-gold-hi); font-weight: 700; }
+		/* Replay : chevrons « retour arrière » devant le sur-titre */
+		.rw { display: inline-block; width: 30px; height: 18px; margin-right: 14px; vertical-align: -1px; background: var(--kb-gold);
+			clip-path: polygon(0 50%, 50% 0, 50% 50%, 100% 0, 100% 100%, 50% 50%, 50% 100%); }
 	</style>
 </head>
 <body>
@@ -108,11 +112,12 @@
 		let M = KBM.stingerModel(KBM.TRANSITION_DEFAULT, false); // modèle courant
 		let panelEls = [];
 
-		/** Prépare la scène (volets, couleurs, contenu) pour une map et des réglages donnés */
-		function setup(mapName, settings) {
-			const m = KB.map(mapName);
-			const label = (m && m.name) || mapName || '';
-			M = KBM.stingerModel(settings, !!label);
+		/** Prépare la scène (volets, couleurs, contenu) pour un type ('logo' | 'map' | 'replay'), une map et des réglages donnés */
+		function setup(mapName, settings, kind) {
+			const replay = kind === 'replay';
+			const m = replay ? null : KB.map(mapName);
+			const label = replay ? 'Replay' : (m && m.name) || mapName || '';
+			M = KBM.stingerModel(settings, replay ? 'replay' : label ? 'map' : 'logo');
 			const s = M.s;
 			// Volets colorés (n-1) + fond nuit (dernier)
 			const pal = s.palette === 'team' ? teamColors() : PALETTES[s.palette] || PALETTES.theme;
@@ -127,7 +132,7 @@
 				panelEls.push(el);
 			}
 			panelEls.push($('#w-cover'));
-			// Contenu
+			// Contenu (has-map : bloc titre affiché, map ou replay)
 			stinger.classList.toggle('has-map', !!label);
 			stinger.classList.toggle('has-splash', !!(label && s.mapSplash && m && m.splash));
 			stinger.classList.remove('title-center', 'title-bottom', 'title-left');
@@ -136,7 +141,15 @@
 			const size = label ? Math.round(s.logoSize * 0.57) : s.logoSize;
 			$('#logo').style.width = $('#logo').style.height = size + 'px';
 			$('#flare').style.display = $('#streak').style.display = s.logoFlare ? '' : 'none';
-			if (label) {
+			if (replay) {
+				$('#mapkicker').innerHTML = '<i class="rw"></i>Revoyons l’action';
+				$('#mapkicker').style.display = '';
+				$('#mapname').textContent = label;
+				$('#mapname').style.display = $('#maprule').style.display = '';
+				$('#mapname').style.fontSize = '180px';
+				$('#mappick').innerHTML = '';
+				$('#mappick').style.display = 'none';
+			} else if (label) {
 				const match = KB.rep.match.value || {};
 				const i = (match.maps || []).findIndex((x) => x.map === label);
 				$('#mapkicker').textContent = i >= 0 ? `Map ${i + 1}` : 'Prochaine map';
@@ -221,19 +234,20 @@
 		}
 		function playFrom(t = 0) { cancelAnimationFrame(raf); playing = true; t0 = performance.now() - t; raf = requestAnimationFrame(loop); }
 		function pause() { cancelAnimationFrame(raf); playing = false; }
-		function play(mapName, settings) { setup(mapName, settings); playFrom(0); }
-		window.playStinger = (map, settings) => play(map || null, settings); // debug
+		function play(mapName, settings, kind) { setup(mapName, settings, kind); playFrom(0); }
+		window.playStinger = (map, settings, kind) => play(map || null, settings, kind); // debug
 
 		const ready = () => NodeCG.waitForReplicants(KB.rep.valorantData, KB.rep.match, KB.rep.teams, trRep);
 
-		// ---- Mode export : prepare(map, settings?) puis seek(ms) image par image ----
+		// ---- Mode export : prepare(map, settings?, kind?) puis seek(ms) image par image ----
 		window.stingerExport = {
 			timing: null,
-			async prepare(mapName, settings) {
+			async prepare(mapName, settings, kind) {
 				await ready();
 				const st = settings || trRep.value;
+				if (kind === 'replay') mapName = null;
 				if (mapName && !KB.map(mapName)) throw new Error(`Map inconnue : ${mapName}`);
-				const info = setup(mapName || null, st);
+				const info = setup(mapName || null, st, kind);
 				await loadImages([KB.img.kbs, KB.img.posterArt, info.splash]);
 				await document.fonts.ready;
 				pause();
@@ -249,8 +263,8 @@
 
 		// ---- Mode aperçu (panneau) : piloté par postMessage, n'écoute PAS le replicant transition ----
 		if (PREVIEW) {
-			let previewMap = null, previewSettings = null;
-			const post = () => parent.postMessage({ type: 'kb-stinger-state', t: Math.round(Math.min(tNow, M.duration)), duration: M.duration, playing,
+			let previewMap = null, previewSettings = null, previewKind = null;
+			const post = () => parent.postMessage({ type: 'kb-stinger-state', t: Math.round(Math.min(tNow, M.duration)), duration: M.duration, playing, kind: M.kind,
 				coveredFrom: M.coveredFrom, coveredTo: M.coveredTo, cut: M.cut, covered: M.covered }, '*');
 			onTick = post;
 			window.addEventListener('message', async (e) => {
@@ -258,8 +272,8 @@
 				if (!d || d.type !== 'kb-stinger') return;
 				await ready();
 				if (d.cmd === 'load') {
-					previewMap = d.map || null; previewSettings = d.settings || null;
-					const info = setup(previewMap, previewSettings);
+					previewMap = d.map || null; previewSettings = d.settings || null; previewKind = d.kind || null;
+					const info = setup(previewMap, previewSettings, previewKind);
 					loadImages([info.splash]);
 					tNow = 0; apply(0); post();
 					if (d.autoplay) playFrom(0);
@@ -281,7 +295,7 @@
 				if (lastAt === null) { lastAt = at || 0; return; }
 				if (!at || at === lastAt) return;
 				lastAt = at;
-				play(v.map || null, trRep.value);
+				play(v.map || null, trRep.value, KBM.trKind(v));
 			};
 			onChange(KB.rep.transition.value);
 			KB.rep.transition.on('change', onChange);

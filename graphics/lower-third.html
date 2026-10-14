@@ -4,22 +4,29 @@
 <meta charset="utf-8">
 <title>KB SERIES · Lower thirds</title>
 <!--
-	Deux lower thirds indépendants (bas-gauche, bas-droite) par-dessus le jeu : standard, annonce dorée ou alerte rouge.
-	Replicants lus : liveLowerThird (défauts : LIVE.defaults.liveLowerThird, shared/live.js), casters (source « caster »).
-	Pilotés par le panneau Live (dashboard/live.html) et la régie.
+	Trois lower thirds indépendants (bas-gauche, bas-centre, bas-droite) par-dessus le jeu : standard, annonce dorée ou alerte rouge.
+	Quand celui du centre est affiché, les trois se resserrent (mode « trio ») pour tenir côte à côte.
+	Replicants lus : liveLowerThird (défauts : LIVE.defaults.liveLowerThird, shared/live.js), casters (source « caster » : host, casters).
+	Pilotés par le panneau Lower thirds (dashboard/lower-thirds.html) et la régie.
 -->
 <link rel="stylesheet" href="../shared/theme.css">
 <style>
-	/* Deux lower thirds indépendants : bas-gauche et bas-droite (au-dessus du ticker, à l'écart de la barre de compétences). */
+	/* Trois lower thirds indépendants : bas-gauche, bas-centre et bas-droite (au-dessus du ticker).
+	   Le centre se construit comme la gauche (médaillon à gauche) mais s'ouvre depuis le milieu. */
 	.lt { position: absolute; bottom: 136px; display: flex; align-items: center; visibility: hidden; --accent: var(--kb-blue-hi); --accent-glow: var(--kb-blue-glow); }
 	.lt.left { left: 64px; }
 	.lt.right { right: 64px; flex-direction: row-reverse; }
+	.lt.center { left: 50%; transform: translateX(-50%); }
+	/* Trio (centre affiché) : panneaux plus étroits, bords rapprochés — 3 × ~510 px tiennent dans 1920 px */
+	.trio .lt.left { left: 40px; } .trio .lt.right { right: 40px; }
+	.trio .body { min-width: 300px; max-width: 400px; padding: 14px 40px 16px 36px; }
+	.trio .right .body { padding: 14px 36px 16px 40px; }
 	.lt.gold { --accent: var(--kb-gold-hi); --accent-glow: rgba(245, 196, 69, .45); }
 	.lt.alert { --accent: var(--kb-red); --accent-glow: rgba(255, 70, 85, .5); }
 
 	/* Médaillon : entre en pivotant, puis flotte doucement */
 	.badge { width: 128px; height: 128px; flex: 0 0 auto; display: grid; place-items: center; position: relative; z-index: 2; perspective: 600px; }
-	.left .badge { margin-right: -22px; } .right .badge { margin-left: -22px; }
+	.left .badge, .center .badge { margin-right: -22px; } .right .badge { margin-left: -22px; }
 	.badge-in { width: 100%; height: 100%; display: grid; place-items: center; transform: rotateY(-100deg) scale(.6); opacity: 0; }
 	.kb-in .badge-in { animation: badge-in .9s var(--kb-ease-out) .05s forwards, badge-float 5s ease-in-out 1s infinite; }
 	.kb-out .badge-in { animation: badge-out .3s ease forwards; }
@@ -36,9 +43,11 @@
 	.reveal { position: relative; transition: clip-path .7s var(--kb-ease-out) .15s; }
 	.left .reveal { clip-path: inset(0 100% 0 0); }
 	.right .reveal { clip-path: inset(0 0 0 100%); }
+	.center .reveal { clip-path: inset(0 50% 0 50%); }
 	.kb-in .reveal { clip-path: inset(0 0 0 0); }
 	.kb-out.left .reveal { clip-path: inset(0 100% 0 0); transition: clip-path .3s var(--kb-ease-inout); }
 	.kb-out.right .reveal { clip-path: inset(0 0 0 100%); transition: clip-path .3s var(--kb-ease-inout); }
+	.kb-out.center .reveal { clip-path: inset(0 50% 0 50%); transition: clip-path .3s var(--kb-ease-inout); }
 	.wipe { position: absolute; top: 0; bottom: 0; width: 6px; z-index: 3; background: #fff; box-shadow: 0 0 18px 6px var(--accent); opacity: 0; pointer-events: none; }
 	.left .wipe { left: 0; } .right .wipe { right: 0; }
 	.kb-in.left .wipe { animation: wipe-l .75s var(--kb-ease-out) .15s; }
@@ -49,7 +58,7 @@
 	.body { --kb-cut: 22px; position: relative; overflow: hidden; min-width: 440px; max-width: 700px; padding: 16px 56px 18px 46px; border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 	.right .body { padding: 16px 46px 18px 56px; text-align: right; clip-path: polygon(0 0, calc(100% - var(--kb-cut)) 0, 100% var(--kb-cut), 100% 100%, var(--kb-cut) 100%, 0 calc(100% - var(--kb-cut))); }
 	.body::before { content: ''; position: absolute; top: 0; bottom: 0; width: 6px; background: var(--accent); box-shadow: 0 0 16px var(--accent-glow); animation: bar-breathe 2.8s ease-in-out infinite; }
-	.left .body::before { left: 0; } .right .body::before { right: 0; }
+	.left .body::before, .center .body::before { left: 0; } .right .body::before { right: 0; }
 	@keyframes bar-breathe { 50% { box-shadow: 0 0 28px 2px var(--accent-glow); filter: brightness(1.3); } }
 	/* Reflet qui traverse le panneau en boucle */
 	.body::after { content: ''; position: absolute; top: 0; bottom: 0; width: 30%; left: -40%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .09), transparent); transform: skewX(-20deg); animation: sweep 6s ease-in-out 1.6s infinite; }
@@ -77,7 +86,7 @@
 	.sub { margin-top: 8px; font: 600 20px var(--kb-ui); letter-spacing: .12em; color: rgba(243, 241, 234, .85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.sub:empty { display: none; }
 	.rule { position: absolute; left: 30px; right: 30px; bottom: 0; height: 3px; transform: scaleX(0); }
-	.left .rule { transform-origin: left; } .right .rule { transform-origin: right; }
+	.left .rule { transform-origin: left; } .center .rule { transform-origin: center; } .right .rule { transform-origin: right; }
 	.kb-in .rule { animation: grow .8s var(--kb-ease-out) .55s forwards; }
 	/* Filet lumineux (.kb-rule) décliné en rouge pour l'alerte */
 	.alert .rule { background: linear-gradient(90deg, transparent, var(--kb-red) 15%, #ff8a95 50%, var(--kb-red) 85%, transparent); box-shadow: 0 0 12px var(--accent-glow); }
@@ -86,6 +95,7 @@
 </head>
 <body>
 	<div class="lt left" id="lt-left"></div>
+	<div class="lt center" id="lt-center"></div>
 	<div class="lt right" id="lt-right"></div>
 
 <script src="../shared/kb.js"></script>
@@ -93,22 +103,12 @@
 <script>
 	const rep = nodecg.Replicant('liveLowerThird', { defaultValue: LIVE.defaults.liveLowerThird });
 	const slots = {};
-	for (const side of ['left', 'right']) {
+	for (const side of LIVE.SIDE_KEYS) {
 		const el = KB.$('#lt-' + side);
 		slots[side] = { side, el, pres: KB.presence(el, 380), key: null, busy: Promise.resolve() };
 	}
 
-	function content(v) {
-		const style = LIVE.styles[v.style] ? v.style : 'standard';
-		let { title, subtitle, kicker } = v;
-		if (v.source === 'caster') {
-			const c = (KB.rep.casters.value || [])[+v.casterIndex || 0] || {};
-			title = c.name || 'Caster';
-			subtitle = c.handle || '';
-			kicker = kicker || 'Caster';
-		}
-		return { style, title: title || '', subtitle: subtitle || '', kicker: kicker || LIVE.styles[style].kicker };
-	}
+	const content = (v) => LIVE.displayContent(v, KB.rep.casters.value);
 
 	// Titre trop long : on réduit la taille avant l'ellipse
 	const fitTitle = (el) => KB.fit(el.querySelector('.title'), { max: 56, min: 34 });
@@ -117,7 +117,7 @@
 		const { el, side } = slot;
 		el.className = `lt ${side} ${c.style}`;
 		const badge = c.style === 'alert' ? '<div class="warn">!</div>' : `<div class="halo"></div><img src="${KB.img.kbs}" alt="">`;
-		const anim = side === 'left' ? 'kb-anim--left' : 'kb-anim--right';
+		const anim = side === 'right' ? 'kb-anim--right' : 'kb-anim--left';
 		el.innerHTML = `
 			<div class="badge"><div class="badge-in">${badge}</div></div>
 			<div class="reveal"><div class="body kb-panel">
@@ -170,8 +170,13 @@
 
 	function render() {
 		const v = LIVE.normalizeLowerThird(rep.value);
-		renderSlot(slots.left, v.left);
-		renderSlot(slots.right, v.right);
+		// Trio dès que le centre doit s'afficher : les titres déjà à l'antenne sont réajustés à leur nouvelle largeur
+		const trio = !!v.center.visible && !!(content(v.center).title || content(v.center).subtitle);
+		if (document.body.classList.contains('trio') !== trio) {
+			document.body.classList.toggle('trio', trio);
+			for (const slot of Object.values(slots)) if (slot.pres.visible) fitTitle(slot.el);
+		}
+		for (const side of LIVE.SIDE_KEYS) renderSlot(slots[side], v[side]);
 	}
 
 	KB.watch(['casters', rep], render);

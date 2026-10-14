@@ -38,9 +38,9 @@ Pour le régisseur (et celui qui l'aide) : les problèmes courants, classés par
 
 | Symptôme | Cause | Solution |
 |---|---|---|
-| « Extension non détectée » alors qu'elle est installée | La régie était ouverte avant l'installation ou la mise à jour de l'extension, ou l'extension est désactivée. | `chrome://extensions` : vérifie qu'elle est activée ; recharge la régie (F5) ; bouton ⟳ du panneau **Équipes & Joueurs**. Elle ne marche que dans Chrome (ou un navigateur Chromium) : la régie doit être ouverte dans ce même navigateur. |
-| L'extension est détectée mais l'import n'aboutit pas | Vérification anti-robot de tracker.gg (Cloudflare), profil privé ou introuvable. | Si l'onglet tracker.gg passe au premier plan avec une vérification, valide-la : l'import reprend seul. Sinon voir le [guide de l'extension](../tools/tracker-extension/README.md#cas-particuliers). |
-| tracker.gg bloque (« Just a moment… », erreur 403) | tracker.gg filtre les robots. | Ouvre une fois tracker.gg dans Chrome, passe la vérification, puis relance l'import. En dernier recours : copier-coller du JSON ([méthode 3](REGIE.md#méthode-3--copier-coller-du-json)) ou saisie à la main. |
+| « Extension non détectée » alors qu'elle est installée | La régie était ouverte avant l'installation ou la mise à jour de l'extension, ou l'extension est désactivée. | `chrome://extensions` (Chrome, Edge) ou `about:addons` (Firefox) : vérifie qu'elle est activée ; recharge la régie (F5) ; bouton ⟳ du panneau **Équipes & Joueurs**. La régie doit être ouverte dans le navigateur où l'extension est installée. Firefox : clique sur l'icône de l'extension et, si demandé, **Autoriser l'accès** ; une installation temporaire disparaît quand Firefox est fermé. |
+| L'extension est détectée mais l'import n'aboutit pas | Vérification anti-robot de tracker.gg (Cloudflare, message « tracker.gg a bloqué la requête »), accès aux sites non autorisé (Firefox), profil privé ou introuvable. | Si l'onglet tracker.gg passe au premier plan avec une vérification, valide-la : l'import reprend seul. Sinon voir le [guide de l'extension](../tools/tracker-extension/README.md#cas-particuliers). |
+| tracker.gg bloque (« Just a moment… », erreur 403) | tracker.gg filtre les robots. | Ouvre une fois tracker.gg dans le navigateur de la régie, passe la vérification, puis relance l'import. En dernier recours : copier-coller du JSON ([méthode 3](REGIE.md#méthode-3--copier-coller-du-json)) ou saisie à la main. |
 | « Aucune stat de saison trouvée » | Profil privé, ou aucune partie classée cette saison. | Le joueur doit rendre son profil public sur tracker.gg ; sinon saisis ses stats à la main dans sa fiche. |
 | « Connecte-toi à la régie NodeCG (même navigateur) puis réessaie. » | Régie protégée par un mot de passe et navigateur non connecté. | Connecte-toi à la régie dans le navigateur qui fait l'import. |
 | Le favori ne fait rien ou ouvre une mauvaise adresse | Favori pris sur une autre adresse de régie, ou cliqué ailleurs que sur un profil tracker.gg. | Clique-le sur la page d'un profil Valorant de tracker.gg. Si la régie a changé d'adresse, refais le favori. |
@@ -49,8 +49,9 @@ Pour le régisseur (et celui qui l'aide) : les problèmes courants, classés par
 
 | Symptôme | Cause | Solution |
 |---|---|---|
-| L'export PNG échoue : « Chrome ou Edge introuvable » | Ni Chrome ni Edge à l'emplacement habituel. | Installe Chrome, ou indique le chemin de `chrome.exe` dans la variable d'environnement `CHROME_PATH` avant de lancer la régie (invite de commandes : `set CHROME_PATH=C:\chemin\vers\chrome.exe` puis `start.bat`). |
-| « Export indisponible sur ce serveur : fais-le depuis la régie locale » | Régie en ligne : l'export a besoin de Chrome sur la machine. | Fais l'export depuis la régie locale (`start.bat`). |
+| L'export PNG échoue : « Aucun navigateur trouvé » | Ni Chrome, ni Edge, ni Firefox à l'emplacement habituel. | Installe l'un des trois, ou indique son chemin avant de lancer la régie (invite de commandes : `set CHROME_PATH=C:\chemin\vers\chrome.exe` ou `set FIREFOX_PATH=C:\chemin\vers\firefox.exe`, puis `start.bat`). |
+| L'export PNG est lent | Avec Firefox, chaque image est capturée deux fois (sur fond noir puis blanc) pour calculer la transparence. | Normal : compter environ 1 image par seconde. Avec Chrome ou Edge installé, l'export les utilise en priorité et va plus vite. |
+| « Export indisponible sur ce serveur : fais-le depuis la régie locale » | Régie en ligne : l'export a besoin d'un navigateur (Chrome, Edge ou Firefox) sur la machine. | Fais l'export depuis la régie locale (`start.bat`). |
 | « Un export est déjà en cours » | Un export tourne. | Attends la fin (barre de progression). Un export est arrêté au bout de 5 minutes. |
 
 ## Données
@@ -72,4 +73,4 @@ Pour le régisseur (et celui qui l'aide) : les problèmes courants, classés par
 ## Après une modification du code
 Pour vérifier que tout va bien (terminal ouvert dans le dossier du projet) :
 1. `npm run lint` : signale les erreurs évidentes dans le code. Doit se terminer sans erreur.
-2. Régie lancée, `npm run check` : ouvre chaque overlay et chaque panneau dans Chrome et signale les erreurs. Doit afficher « aucune erreur ».
+2. Régie lancée, `npm run check` : ouvre chaque overlay et chaque panneau dans Chrome (ou Edge, ou Firefox) et signale les erreurs. Doit afficher « aucune erreur ».

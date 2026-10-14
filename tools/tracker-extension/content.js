@@ -3,6 +3,7 @@
 //   page -> extension : { source: 'kb-tracker-page', id, type: 'ping' }            -> { source: 'kb-tracker-ext', id, type: 'pong', version }
 //   page -> extension : { source: 'kb-tracker-page', id, type: 'import', riotId, playlist }
 //                       -> { type: 'status', state, message }* puis { type: 'result', ok, riotId, message }
+// Chrome et Firefox : le même fichier sert aux deux.
 (() => {
 	const PAGE = 'kb-tracker-page';
 	const EXT = 'kb-tracker-ext';
@@ -10,6 +11,11 @@
 	try { version = chrome.runtime.getManifest().version; } catch { /* contexte invalidé */ }
 
 	const reply = (id, msg) => window.postMessage({ source: EXT, id, ...msg }, location.origin);
+	// Firefox : un fetch de content script part avec l'identité de l'extension (pas de cookies de la régie, et
+	// Sec-Fetch-Site ≠ same-origin → refusé par la garde sameOrigin). content.fetch envoie la requête au nom de la page.
+	// Chrome : le fetch d'un content script est déjà celui de la page (content n'existe pas).
+	/* global content */
+	const pageFetch = typeof content !== 'undefined' && content && typeof content.fetch === 'function' ? content.fetch.bind(content) : fetch;
 
 	window.addEventListener('message', (e) => {
 		if (e.source !== window || !e.data || e.data.source !== PAGE) return;
@@ -38,10 +44,11 @@
 				if (!msg) return;
 				if (msg.type === 'post') {
 					// Envoi du JSON tracker.gg à NodeCG depuis la page (même origine → cookies de connexion inclus)
-					fetch(location.origin + '/valorant-tournament/tracker-import?playlist=' + encodeURIComponent(msg.playlist || 'competitive'), {
+					pageFetch(location.origin + '/valorant-tournament/tracker-import?playlist=' + encodeURIComponent(msg.playlist || 'competitive'), {
 						method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: msg.text, credentials: 'include',
 					})
-						.then((r) => r.json().catch(() => ({ ok: false, error: 'Réponse NodeCG invalide (HTTP ' + r.status + ')' })))
+						// Lu en texte puis parsé ici : sous Firefox, l'objet renvoyé par content.fetch appartient à la page
+						.then((r) => r.text().then((t) => { try { return JSON.parse(t); } catch { return { ok: false, error: 'Réponse NodeCG invalide (HTTP ' + r.status + ')' }; } }))
 						.then((j) => { try { port.postMessage({ type: 'posted', ok: !!j.ok, riotId: j.riotId, error: j.error }); } catch { /* port fermé */ } })
 						.catch((err) => { try { port.postMessage({ type: 'posted', ok: false, error: 'NodeCG injoignable : ' + err.message }); } catch { /* */ } });
 					return;

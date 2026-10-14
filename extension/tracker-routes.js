@@ -1,7 +1,7 @@
 // Routes HTTP de l'import tracker.gg (montées sur la racine du serveur NodeCG) :
 //   POST /valorant-tournament/tracker-import?playlist=   JSON brut tracker.gg (text/plain) → { ok, id, riotId } | { ok:false, error }
 //   GET  /valorant-tournament/tracker-receiver           fenêtre ouverte par le favori (static/tracker-receiver.html)
-//   GET  /valorant-tournament/tracker-status             état lu par les panneaux et la popup de l'extension Chrome
+//   GET  /valorant-tournament/tracker-status             état lu par les panneaux et la popup de l'extension
 //   GET  /valorant-tournament/tracker-extension          guide d'installation de l'extension (README rendu en HTML)
 const fs = require('fs');
 const path = require('path');
@@ -32,7 +32,7 @@ module.exports = function (nodecg, tracker) {
 		res.sendFile(path.join(STATIC, 'tracker-receiver.html'));
 	});
 
-	// La popup de l'extension Chrome l'interroge depuis son origine chrome-extension:// (d'où le CORS ouvert).
+	// La popup de l'extension l'interroge depuis son origine chrome-extension:// ou moz-extension:// (d'où le CORS ouvert).
 	// Le dossier sur le disque et le nombre de profils ne sont donnés qu'aux personnes autorisées.
 	router.get('/valorant-tournament/tracker-status', (req, res) => {
 		res.set('Access-Control-Allow-Origin', '*');

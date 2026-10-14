@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Écran 50/50</title>
+<!--
+	Écran 50/50 (dual-cam) : coordonnées des trous caméra, labels des deux moitiés, bandeau du match. Appliqué en direct.
+	Écrit : liveDualCam. La scène s'affiche avec le bouton « 50/50 caméras » de la Régie.
+-->
+<link rel="stylesheet" href="../shared/dashboard.css">
+<style>
+	code { font-size: 11.5px; color: var(--gold); }
+	.coords { font-size: 12px; margin-top: 6px; line-height: 1.6; }
+	.coords .hint { margin: 0; }
+</style>
+</head>
+<body>
+	<!-- ===== Écran 50/50 ===== -->
+	<h3>Écran 50/50 (dual-cam)</h3>
+	<div class="card">
+		<div class="coords" id="dcCoords"></div>
+		<div id="dcSides"></div>
+		<label class="chk"><input type="checkbox" id="dcInfo"> Bandeau match en cours (centre bas)</label>
+		<label for="dcInfoText">Surtitre du bandeau (vide = phase · format)</label><input id="dcInfoText" placeholder="ex. Interview d'après-match">
+		<div class="hint">Les changements s'appliquent en direct (le label concerné rejoue son entrée).</div>
+	</div>
+
+<script src="../shared/kb.js"></script>
+<script src="../shared/live.js"></script>
+<script src="../shared/dash.js"></script>
+<script>
+	const D = LIVE.defaults;
+	const dc = nodecg.Replicant('liveDualCam', { defaultValue: D.liveDualCam });
+	const $ = (id) => document.getElementById(id);
+	const SIDES = { left: 'Gauche', right: 'Droite' }; // les deux moitiés de l'écran
+	// Écrit seulement les champs qui changent : un changement fait au même moment ailleurs (visibilité…) est préservé
+	const patch = (rep, obj) => {
+		if (!rep.value || typeof rep.value !== 'object') { rep.value = { ...obj }; return; }
+		for (const [k, v] of Object.entries(obj)) if (JSON.stringify(rep.value[k]) !== JSON.stringify(v)) rep.value[k] = v;
+	};
+
+
+	// ---------- Écran 50/50 ----------
+	$('dcCoords').innerHTML = '<span class="hint">Trous transparents (OBS, canevas 1920×1080) :</span><br>' + LIVE.dualFrames.map((f, i) =>
+		`${i ? 'Droite' : 'Gauche'} : <code>x ${f.x} · y ${f.y} · ${f.w}×${f.h}</code>`).join('<br>');
+	$('dcSides').innerHTML = Object.entries(SIDES).map(([side, name]) => `
+		<div class="card" data-dc="${side}">
+			<span class="side-title">Moitié ${name.toLowerCase()}</span>
+			<div class="grid2">
+				<div><label for="dc-${side}-mode">Label</label><select id="dc-${side}-mode" data-k="mode"><option value="none">Aucun</option><option value="text">Texte libre</option><option value="team">Équipe</option><option value="player">Joueur</option></select></div>
+				<div data-show="team"><label for="dc-${side}-team">Équipe</label><select id="dc-${side}-team" data-k="team"></select></div>
+				<div data-show="player"><label for="dc-${side}-riotId">Joueur</label><select id="dc-${side}-riotId" data-k="riotId"></select></div>
+			</div>
+			<label for="dc-${side}-text" data-show="text team player">Titre <span class="hint">(vide = nom auto)</span></label><input id="dc-${side}-text" data-k="text" data-show="text team player" placeholder="ex. Interview">
+			<label for="dc-${side}-sub" data-show="text team player">Sous-titre <span class="hint">(optionnel)</span></label><input id="dc-${side}-sub" data-k="sub" data-show="text team player" placeholder="ex. Capitaine">
+		</div>`).join('');
+	const dcEl = (side, k) => document.querySelector(`[data-dc="${side}"] [data-k="${k}"]`);
+	const dcVal = () => ({ ...D.liveDualCam, ...(dc.value || {}) });
+	function dcModeVis(side) {
+		const mode = dcEl(side, 'mode').value;
+		document.querySelectorAll(`[data-dc="${side}"] [data-show]`).forEach((el) => el.classList.toggle('hidden', !el.dataset.show.split(' ').includes(mode)));
+	}
+	for (const side of Object.keys(SIDES)) {
+		for (const k of ['mode', 'team', 'riotId', 'text', 'sub']) {
+			const el = dcEl(side, k);
+			el.addEventListener('change', () => {
+				const v = dcVal();
+				patch(dc, { [side]: { ...LIVE.camLabelDefault(side === 'left' ? 'A' : 'B'), ...(v[side] || {}), [k]: el.value } });
+				dcModeVis(side);
+			});
+		}
+	}
+	// Un menu n'est pas réécrit tant qu'il a le focus (KBD.fillSelect) : rattrapage à la sortie
+	$('dcSides').addEventListener('focusout', () => setTimeout(renderDC, 0));
+	$('dcInfo').onchange = () => patch(dc, { info: $('dcInfo').checked });
+	$('dcInfoText').onchange = () => patch(dc, { infoText: $('dcInfoText').value.trim() });
+
+	function renderDC() {
+		const v = dcVal();
+		const teams = Object.values(KB.rep.teams.value || {});
+		const m = KB.rep.match.value || {};
+		const tA = KB.team(m.teamA), tB = KB.team(m.teamB);
+		const teamOpts = `<option value="A">Équipe A du match${tA ? ' (' + KB.esc(tA.name) + ')' : ''}</option><option value="B">Équipe B du match${tB ? ' (' + KB.esc(tB.name) + ')' : ''}</option>`
+			+ KBD.teamOptions(null, { empty: null, label: (t) => t.name });
+		const players = teams.flatMap((t) => KB.roster(t).filter(Boolean).map((p) => ({ id: p.riotId, label: `${p.name} (${t.tag || t.name})` })));
+		for (const side of Object.keys(SIDES)) {
+			const lab = { ...LIVE.camLabelDefault(side === 'left' ? 'A' : 'B'), ...(v[side] || {}) };
+			const pl = [...players];
+			if (lab.riotId && !pl.some((p) => KB.key(p.id) === KB.key(lab.riotId))) pl.unshift({ id: lab.riotId, label: lab.riotId });
+			if (document.activeElement !== dcEl(side, 'mode')) dcEl(side, 'mode').value = lab.mode;
+			KBD.fillSelect(dcEl(side, 'team'), teamOpts, lab.team || (side === 'left' ? 'A' : 'B'));
+			KBD.fillSelect(dcEl(side, 'riotId'), (pl.length ? '<option value="">— choisir —</option>' : '<option value="">Aucun joueur enregistré</option>')
+				+ pl.map((p) => `<option value="${KB.esc(p.id)}">${KB.esc(p.label)}</option>`).join(''), lab.riotId || '');
+			for (const k of ['text', 'sub']) if (document.activeElement !== dcEl(side, k)) dcEl(side, k).value = lab[k] || '';
+			dcModeVis(side);
+		}
+		$('dcInfo').checked = !!v.info;
+		if (document.activeElement !== $('dcInfoText')) $('dcInfoText').value = v.infoText || '';
+	}
+
+	KB.watch(['teams', 'match', 'playerData', 'playerProfiles', 'valorantData', dc], renderDC);
+</script>
+</body>
+</html>

@@ -17,6 +17,7 @@ module.exports = function (nodecg) {
 		['scenes', () => require('./scenes')(nodecg)],
 		['live', () => require('./live')(nodecg, listen)],
 		['match', () => require('./match')(nodecg)],
+		['veto-teams', () => require('./veto-teams')(nodecg, listen)],   // pages de veto envoyées aux équipes
 		['bracket', () => require('./bracket')(nodecg, listen, backup)],
 		['data-admin', () => require('./data-admin')(nodecg, listen, backup)],
 		['test-data', () => require('./test-data')(nodecg, listen, backup)],

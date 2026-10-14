@@ -11,6 +11,6 @@ module.exports = {
 	BACKUPS: path.join(DB, 'backups'),                          // sauvegardes JSON des replicants (extension/lib/backup.js)
 	TRACKER: path.join(DB, 'tracker'),                          // JSON bruts tracker.gg (re-normalisables)
 	ASSETS: path.join(ROOT, 'assets', 'valorant-tournament'),   // fichiers envoyés dans l'onglet Assets de NodeCG
-	EXT_DIR: path.join(ROOT, 'tools', 'tracker-extension'),     // extension Chrome compagnon
+	EXT_DIR: path.join(ROOT, 'tools', 'tracker-extension'),     // extension compagnon (Chrome, Edge, Firefox)
 	STATIC: path.join(__dirname, '..', 'static'),               // pages HTML servies par les routes du bundle
 };

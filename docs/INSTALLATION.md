@@ -7,7 +7,7 @@ Pour le régisseur : installer la régie sur un PC Windows, la lancer, l'ouvrir 
 |---|---|
 | Windows | Les lanceurs `start.bat` et `start-reseau.bat` sont des fichiers Windows. |
 | [Node.js 24 LTS](https://nodejs.org) | Fait tourner la régie. Prends la version **LTS** 24 ; installe-la avec les options par défaut. |
-| Google Chrome | Extension d'import tracker.gg, export de la transition en PNG, outils de vérification. (À défaut, l'export et les outils savent aussi utiliser Microsoft Edge.) |
+| Google Chrome, Microsoft Edge ou Mozilla Firefox (140+) | Navigateur de la régie et de l'extension d'import tracker.gg (les trois conviennent). L'export de la transition en PNG et les outils de vérification utilisent Chrome, sinon Edge, sinon Firefox. |
 | Internet au premier lancement | Installation des dépendances, puis téléchargement des images des maps et des agents (gardées ensuite pour fonctionner hors ligne). |
 
 ## Installer depuis zéro
@@ -44,7 +44,7 @@ La régie utilise le port **9090**. Si un autre logiciel l'occupe, ouvre une inv
 set PORT=9091
 start.bat
 ```
-La régie est alors sur `http://localhost:9091` (adapte aussi l'URL dans OBS). L'extension Chrome d'import est réglée pour le port 9090 : voir [son guide](../tools/tracker-extension/README.md#régie-sur-un-autre-port).
+La régie est alors sur `http://localhost:9091` (adapte aussi l'URL dans OBS). L'extension d'import tracker.gg marche sur n'importe quel port : rien à changer ([son guide](../tools/tracker-extension/README.md#régie-sur-un-autre-port-ou-en-ligne)).
 
 ## Mettre à jour le projet
 1. **Avant tout** : panneau **Données** → **⬇ Exporter mes données** (copie de sécurité, voir [DONNEES.md](DONNEES.md)).
@@ -54,7 +54,7 @@ La régie est alors sur `http://localhost:9091` (adapte aussi l'URL dans OBS). L
    - **avec un ZIP** : extrais la nouvelle version dans un **nouveau** dossier, puis copie dedans les dossiers `db/` et `assets/` de l'ancien (tes données, logos et photos). Copie aussi `exports/` et `Medias/` si tu t'en sers.
 4. Si la mise à jour change les dépendances (fichiers `package.json` ou `package-lock.json`), supprime le dossier `node_modules/` : `start.bat` réinstallera tout au prochain lancement.
 5. Relance `start.bat`.
-6. Si tu utilises l'extension Chrome d'import : `chrome://extensions` → bouton d'actualisation sur la carte de l'extension, puis recharge la régie (F5).
+6. Si tu utilises l'extension d'import : actualise-la (Chrome / Edge : `chrome://extensions` → bouton d'actualisation sur sa carte ; Firefox : voir [son guide](../tools/tracker-extension/README.md#mettre-à-jour)), puis recharge la régie (F5).
 
 ## Arrêter la régie
 Ferme la fenêtre noire. Les données sont enregistrées au fil de l'eau : rien à sauvegarder avant.

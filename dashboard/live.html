@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <title>Live</title>
 <!--
-	Live : score de série, lower thirds (formulaire complet + presets), ticker, écran 50/50, casters.
-	Écrit : match.swap, liveLowerThird et liveLowerThirdPresets (via KBLT), liveTicker, liveDualCam, casters ; visibilités via KBO.
-	Message envoyé : live:series { team, delta }.
+	Live : score de la série (maps gagnées, inverser gauche / droite).
+	Écrit : match.swap. Message envoyé : live:series { team, delta }.
+	Lower thirds, ticker et écran 50/50 ont chacun leur panneau (lower-thirds.html, ticker.html, dual-cam.html).
 -->
 <link rel="stylesheet" href="../shared/dashboard.css">
 <style>
@@ -16,19 +16,7 @@
 	.teamrow .sw { width: 12px; height: 12px; border-radius: 2px; flex: 0 0 auto; background: var(--c); }
 	.teamrow .n { font: 700 18px 'Segoe UI', sans-serif; min-width: 22px; text-align: center; }
 	.teamrow button { padding: 6px 10px; min-width: 40px; }
-	.presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-	.presets button { flex: 0 0 auto; font-size: 12px; padding: 6px 9px; }
-	.caster { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; margin-top: 6px; }
-	.caster button { padding: 6px 10px; }
-	code { font-size: 11.5px; color: var(--gold); }
-	.coords { font-size: 12px; margin-top: 6px; line-height: 1.6; }
-	.coords .hint { margin: 0; }
 	.small { font-size: 12px; color: var(--muted); margin-top: 4px; }
-	.prow { display: flex; gap: 4px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--line); }
-	.prow:last-child { border-bottom: 0; }
-	.prow .pname { flex: 1; min-width: 0; }
-	.prow .pname small { display: block; color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.prow button { padding: 4px 7px; font-size: 12px; flex: 0 0 auto; }
 </style>
 </head>
 <body>
@@ -41,66 +29,11 @@
 		<div class="msg" id="sbMsg"></div>
 	</div>
 
-	<!-- ===== Lower thirds ===== -->
-	<h3>Lower thirds (gauche / droite)</h3>
-	<div id="ltCards"></div>
-	<div class="row"><button type="button" class="danger" id="ltHideAll" title="Masque les lower thirds gauche et droite (le ticker et les autres overlays restent à l'antenne)">Masquer les 2 lower thirds</button></div>
-	<h3>Mes presets de lower third</h3>
-	<div class="card"><div id="presetList"></div><div class="hint">Les presets automatiques (casters, pause technique, prochain match) restent toujours disponibles en plus.</div></div>
-
-	<!-- ===== Ticker ===== -->
-	<h3>Ticker défilant (bas d'écran)</h3>
-	<div class="card">
-		<div id="tkRow"></div>
-		<div id="tkForm">
-			<label for="tkMsgs">Messages (un par ligne)</label>
-			<textarea id="tkMsgs" rows="5"></textarea>
-			<div class="grid2">
-				<div><label for="tkSpeed">Vitesse (px/s)</label><input id="tkSpeed" type="number" min="20" max="400" step="10"></div>
-				<div><label>&nbsp;</label><label class="chk"><input type="checkbox" id="tkPartners"> Partenaires CYCOM / EPITECH</label></div>
-			</div>
-		</div>
-		<div class="hint lt-dirty" id="tkState"></div>
-		<div class="row"><button type="button" class="primary" id="tkSave">Enregistrer le ticker</button></div>
-		<div class="msg" id="tkMsg"></div>
-	</div>
-
-	<!-- ===== Écran 50/50 ===== -->
-	<h3>Écran 50/50 (dual-cam)</h3>
-	<div class="card">
-		<div class="coords" id="dcCoords"></div>
-		<div id="dcSides"></div>
-		<label class="chk"><input type="checkbox" id="dcInfo"> Bandeau match en cours (centre bas)</label>
-		<label for="dcInfoText">Surtitre du bandeau (vide = phase · format)</label><input id="dcInfoText" placeholder="ex. Interview d'après-match">
-		<div class="hint">Les changements s'appliquent en direct (le label concerné rejoue son entrée).</div>
-	</div>
-
-	<!-- ===== Casters ===== -->
-	<h3>Casters (presets des lower thirds)</h3>
-	<div class="card">
-		<div id="casters"></div>
-		<div class="hint lt-dirty" id="cState"></div>
-		<div class="row"><button type="button" id="addCaster">+ Ajouter un caster</button><button type="button" class="primary" id="saveCasters">Enregistrer</button></div>
-		<div class="msg" id="cMsg"></div>
-	</div>
-
 <script src="../shared/kb.js"></script>
 <script src="../shared/live.js"></script>
 <script src="../shared/dash.js"></script>
-<script src="../shared/overlays.js"></script>
-<script src="../shared/lt-form.js"></script>
 <script>
-	const D = LIVE.defaults;
-	const tk = nodecg.Replicant('liveTicker', { defaultValue: D.liveTicker });
-	const dc = nodecg.Replicant('liveDualCam', { defaultValue: D.liveDualCam });
-	const ltp = nodecg.Replicant('liveLowerThirdPresets', { defaultValue: D.liveLowerThirdPresets });
 	const $ = (id) => document.getElementById(id);
-	const SIDES = { left: 'Gauche', right: 'Droite' };
-	// Écrit seulement les champs qui changent : un changement fait au même moment ailleurs (visibilité…) est préservé
-	const patch = (rep, obj) => {
-		if (!rep.value || typeof rep.value !== 'object') { rep.value = { ...obj }; return; }
-		for (const [k, v] of Object.entries(obj)) if (JSON.stringify(rep.value[k]) !== JSON.stringify(v)) rep.value[k] = v;
-	};
 
 	// ---------- Score de série ----------
 	$('swap').onclick = () => { const m = KB.rep.match; if (m.value) m.value.swap = !m.value.swap; };
@@ -124,162 +57,8 @@
 		$('seriesInfo').textContent = `${m.stage || '—'} · ${KB.formatLabel(m.format)} · Map ${(+m.currentMap || 0) + 1}${cur && cur.map ? ' : ' + cur.map : ''}${m.swap ? ' · gauche / droite inversés' : ''}`;
 	}
 
-	// ---------- Lower thirds (2 slots) : formulaire partagé avec la Régie ----------
-	const ltForm = KBLT.mount('#ltCards');
-	$('ltHideAll').onclick = () => { KBO.hide('lower-third-left'); KBO.hide('lower-third-right'); };
-
-	// Liste éditable des presets personnalisés (rendu différé pendant un renommage)
-	const presets = () => (Array.isArray(ltp.value) ? ltp.value : []);
-	function renderPresetList() {
-		const mine = presets();
-		$('presetList').innerHTML = mine.length ? mine.map((p, i) => `<div class="prow" data-i="${i}">
-			<span class="pname"><b>${KB.esc(p.name)}</b><small>${KB.esc(LIVE.styles[p.style] ? LIVE.styles[p.style].label : p.style)} · ${KB.esc([p.title, p.subtitle].filter(Boolean).join(' — ') || (p.source === 'caster' ? 'caster ' + ((+p.casterIndex || 0) + 1) : ''))}</small></span>
-			<button type="button" data-p="left" title="Afficher à gauche">◀ G</button><button type="button" data-p="right" title="Afficher à droite">D ▶</button>
-			<button type="button" data-p="up" title="Monter" ${i ? '' : 'disabled'}>↑</button><button type="button" data-p="down" title="Descendre" ${i < mine.length - 1 ? '' : 'disabled'}>↓</button>
-			<button type="button" data-p="ren">Renommer</button><button type="button" class="danger" data-p="del" title="Supprimer">✕</button></div>`).join('')
-			: '<p class="empty">Aucun preset perso : remplis un lower third puis « Enregistrer comme preset ».</p>';
-	}
-	const safePresetList = KBD.deferWhileEditing('presetList', renderPresetList);
-	$('presetList').addEventListener('click', (e) => {
-		const b = e.target.closest('button[data-p]');
-		if (!b) return;
-		const row = b.closest('.prow'), i = +row.dataset.i;
-		const list = presets().map((p) => ({ ...p }));
-		const a = b.dataset.p;
-		if (a === 'left' || a === 'right') return ltForm.applyPreset(a, list[i]);
-		if (a === 'up' || a === 'down') { const j = a === 'up' ? i - 1 : i + 1; [list[i], list[j]] = [list[j], list[i]]; ltp.value = list; return; }
-		if (a === 'del') return KBD.arm(b, () => { list.splice(i, 1); ltp.value = list; }, { label: 'Supprimer ?', ms: 3000 });
-		if (a === 'ren') {
-			const span = row.querySelector('.pname');
-			span.innerHTML = `<label class="vh" for="renName">Nouveau nom du preset</label><input id="renName" value="${KB.esc(list[i].name)}">`;
-			const inp = span.querySelector('input'); inp.focus(); inp.select();
-			let closed = false;
-			const done = () => { if (closed) return; closed = true; const n = inp.value.trim(); if (n && n !== list[i].name) { list[i].name = n; ltp.value = list; } else safePresetList(); };
-			// Entrée : on quitte le champ (qui valide) pour que la liste se remette à jour tout de suite
-			inp.onkeydown = (ev) => { if (ev.key === 'Enter') inp.blur(); if (ev.key === 'Escape') { closed = true; inp.blur(); renderPresetList(); } };
-			inp.onblur = done;
-		}
-	});
-
-	// ---------- Ticker : visibilité immédiate (KBO), messages / vitesse / partenaires à enregistrer ----------
-	KBO.bind('tkRow');
-	const tkLines = () => $('tkMsgs').value.split('\n').map((s) => s.trim()).filter(Boolean);
-	const tkSpeed = (v) => Math.min(400, Math.max(20, +v || D.liveTicker.speed));
-	const tkForm = KBD.bindDirty('tkForm', {
-		read: () => ({ messages: tkLines(), speed: tkSpeed($('tkSpeed').value), partners: $('tkPartners').checked }),
-		fill: (v) => { $('tkMsgs').value = v.messages.join('\n'); $('tkSpeed').value = v.speed; $('tkPartners').checked = v.partners; },
-		// Même nettoyage que read() : un message importé avec un espace final ne doit pas rester « non enregistré » pour toujours
-		live: () => { const v = tk.value; return v && { messages: (v.messages || []).map((s) => String(s ?? '').trim()).filter(Boolean), speed: tkSpeed(v.speed), partners: v.partners !== false }; },
-		onState: (dirty) => { $('tkSave').disabled = !dirty; $('tkState').textContent = dirty ? 'Modifications non enregistrées' : ''; },
-	});
-	$('tkSave').onclick = () => {
-		const v = { messages: tkLines(), speed: tkSpeed($('tkSpeed').value), partners: $('tkPartners').checked };
-		patch(tk, v);
-		$('tkMsgs').value = v.messages.join('\n'); $('tkSpeed').value = v.speed;
-		KBD.flash('tkMsg', 'Ticker mis à jour', 'ok', 3500);
-	};
-	function renderTK() {
-		const html = KBO.row('ticker');
-		if ($('tkRow')._html !== html) { $('tkRow').innerHTML = html; $('tkRow')._html = html; }
-		tkForm.sync();
-	}
-
-	// ---------- Écran 50/50 ----------
-	$('dcCoords').innerHTML = '<span class="hint">Trous transparents (OBS, canevas 1920×1080) :</span><br>' + LIVE.dualFrames.map((f, i) =>
-		`${i ? 'Droite' : 'Gauche'} : <code>x ${f.x} · y ${f.y} · ${f.w}×${f.h}</code>`).join('<br>');
-	$('dcSides').innerHTML = Object.entries(SIDES).map(([side, name]) => `
-		<div class="card" data-dc="${side}">
-			<span class="side-title">Moitié ${name.toLowerCase()}</span>
-			<div class="grid2">
-				<div><label for="dc-${side}-mode">Label</label><select id="dc-${side}-mode" data-k="mode"><option value="none">Aucun</option><option value="text">Texte libre</option><option value="team">Équipe</option><option value="player">Joueur</option></select></div>
-				<div data-show="team"><label for="dc-${side}-team">Équipe</label><select id="dc-${side}-team" data-k="team"></select></div>
-				<div data-show="player"><label for="dc-${side}-riotId">Joueur</label><select id="dc-${side}-riotId" data-k="riotId"></select></div>
-			</div>
-			<label for="dc-${side}-text" data-show="text team player">Titre <span class="hint">(vide = nom auto)</span></label><input id="dc-${side}-text" data-k="text" data-show="text team player" placeholder="ex. Interview">
-			<label for="dc-${side}-sub" data-show="text team player">Sous-titre <span class="hint">(optionnel)</span></label><input id="dc-${side}-sub" data-k="sub" data-show="text team player" placeholder="ex. Capitaine">
-		</div>`).join('');
-	const dcEl = (side, k) => document.querySelector(`[data-dc="${side}"] [data-k="${k}"]`);
-	const dcVal = () => ({ ...D.liveDualCam, ...(dc.value || {}) });
-	function dcModeVis(side) {
-		const mode = dcEl(side, 'mode').value;
-		document.querySelectorAll(`[data-dc="${side}"] [data-show]`).forEach((el) => el.classList.toggle('hidden', !el.dataset.show.split(' ').includes(mode)));
-	}
-	for (const side of Object.keys(SIDES)) {
-		for (const k of ['mode', 'team', 'riotId', 'text', 'sub']) {
-			const el = dcEl(side, k);
-			el.addEventListener('change', () => {
-				const v = dcVal();
-				patch(dc, { [side]: { ...LIVE.camLabelDefault(side === 'left' ? 'A' : 'B'), ...(v[side] || {}), [k]: el.value } });
-				dcModeVis(side);
-			});
-		}
-	}
-	// Un menu n'est pas réécrit tant qu'il a le focus (KBD.fillSelect) : rattrapage à la sortie
-	$('dcSides').addEventListener('focusout', () => setTimeout(renderDC, 0));
-	$('dcInfo').onchange = () => patch(dc, { info: $('dcInfo').checked });
-	$('dcInfoText').onchange = () => patch(dc, { infoText: $('dcInfoText').value.trim() });
-
-	function renderDC() {
-		const v = dcVal();
-		const teams = Object.values(KB.rep.teams.value || {});
-		const m = KB.rep.match.value || {};
-		const tA = KB.team(m.teamA), tB = KB.team(m.teamB);
-		const teamOpts = `<option value="A">Équipe A du match${tA ? ' (' + KB.esc(tA.name) + ')' : ''}</option><option value="B">Équipe B du match${tB ? ' (' + KB.esc(tB.name) + ')' : ''}</option>`
-			+ KBD.teamOptions(null, { empty: null, label: (t) => t.name });
-		const players = teams.flatMap((t) => KB.roster(t).filter(Boolean).map((p) => ({ id: p.riotId, label: `${p.name} (${t.tag || t.name})` })));
-		for (const side of Object.keys(SIDES)) {
-			const lab = { ...LIVE.camLabelDefault(side === 'left' ? 'A' : 'B'), ...(v[side] || {}) };
-			const pl = [...players];
-			if (lab.riotId && !pl.some((p) => KB.key(p.id) === KB.key(lab.riotId))) pl.unshift({ id: lab.riotId, label: lab.riotId });
-			if (document.activeElement !== dcEl(side, 'mode')) dcEl(side, 'mode').value = lab.mode;
-			KBD.fillSelect(dcEl(side, 'team'), teamOpts, lab.team || (side === 'left' ? 'A' : 'B'));
-			KBD.fillSelect(dcEl(side, 'riotId'), (pl.length ? '<option value="">— choisir —</option>' : '<option value="">Aucun joueur enregistré</option>')
-				+ pl.map((p) => `<option value="${KB.esc(p.id)}">${KB.esc(p.label)}</option>`).join(''), lab.riotId || '');
-			for (const k of ['text', 'sub']) if (document.activeElement !== dcEl(side, k)) dcEl(side, k).value = lab[k] || '';
-			dcModeVis(side);
-		}
-		$('dcInfo').checked = !!v.info;
-		if (document.activeElement !== $('dcInfoText')) $('dcInfoText').value = v.infoText || '';
-	}
-
-	// ---------- Casters : brouillon gardé jusqu'à « Enregistrer » ----------
-	const casterRows = () => [...$('casters').querySelectorAll('.caster')].map((r) => ({
-		name: r.querySelector('[data-f="name"]').value.trim(), handle: r.querySelector('[data-f="handle"]').value.trim(),
-	}));
-	function drawCasters(list) {
-		$('casters').innerHTML = list.map((c, i) => `<div class="caster">
-			<label class="vh" for="caster-${i}-name">Nom du caster ${i + 1}</label><input id="caster-${i}-name" data-f="name" value="${KB.esc(c.name)}" placeholder="Nom">
-			<label class="vh" for="caster-${i}-handle">Pseudo du caster ${i + 1}</label><input id="caster-${i}-handle" data-f="handle" value="${KB.esc(c.handle)}" placeholder="@handle">
-			<button type="button" class="danger" data-del="${i}" title="Retirer de la liste (appliqué à l'enregistrement)">✕</button></div>`).join('') || '<p class="empty">Aucun caster</p>';
-	}
-	const castersForm = KBD.bindDirty('casters', {
-		read: casterRows,
-		fill: drawCasters,
-		live: () => KB.rep.casters.value && KB.rep.casters.value.map((c) => ({ name: c.name || '', handle: c.handle || '' })),
-		onState: (dirty) => { $('saveCasters').disabled = !dirty; $('cState').textContent = dirty ? 'Modifications non enregistrées' : ''; },
-	});
-	$('casters').addEventListener('click', (e) => {
-		const b = e.target.closest('[data-del]');
-		if (!b) return;
-		const list = casterRows();
-		list.splice(+b.dataset.del, 1);
-		drawCasters(list);
-		castersForm.sync();
-	});
-	$('addCaster').onclick = () => { drawCasters([...casterRows(), { name: '', handle: '' }]); castersForm.sync(); };
-	$('saveCasters').onclick = () => {
-		const list = casterRows().filter((c) => c.name || c.handle);
-		KB.rep.casters.value = list;
-		drawCasters(list);
-		KBD.flash('cMsg', 'Casters enregistrés', 'ok', 3500);
-	};
-
 	// Boutons −1 / +1 reconstruits à chaque score : jamais pendant un appui (deux clics rapides, le 2e serait perdu)
 	KB.watch(['match', 'teams'], KBD.deferWhileEditing('teams', renderMatch));
-	KB.watch([ltp], safePresetList);
-	KB.watch([tk], renderTK);
-	KB.watch(['teams', 'match', 'playerData', 'playerProfiles', 'valorantData', dc], renderDC);
-	KB.watch(['casters'], () => castersForm.sync());
 </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// Logique serveur : live (lower thirds gauche/droite + presets, ticker, écran 50/50, raccourcis de score de série)
+// Logique serveur : live (lower thirds gauche / centre / droite + presets, ticker, écran 50/50, raccourcis de score de série)
 // Replicants : liveLowerThird, liveLowerThirdPresets, liveTicker, liveDualCam (défauts : shared/live.js, LIVE.defaults)
 // Masque seul un lower third après `duration` secondes. Message : 'live:series' { team, delta } → { A, B, currentMap }
 const LIVE = require('../shared/live.js');
@@ -11,26 +11,32 @@ module.exports = function (nodecg, listen) {
 	for (const [name, def] of Object.entries(LIVE.defaults)) reps[name] = nodecg.Replicant(name, { defaultValue: clone(def) });
 	const match = nodecg.Replicant('match');
 
-	// Migration V1 → V2 : liveLowerThird { visible, title... } devient { left, right }
+	// Migrations : liveLowerThird { visible, title... } devient { left, center, right } ; { left, right } reçoit center
 	const lt = reps.liveLowerThird;
 	const v0 = lt.value;
-	if (!v0 || !v0.left || !v0.right) lt.value = LIVE.normalizeLowerThird(v0);
+	if (!LIVE.isCompleteLowerThird(v0)) lt.value = LIVE.normalizeLowerThird(v0);
 
 	// ---------- Lower thirds : masquage automatique de chaque côté après `duration` secondes ----------
+	// hideAt (heure du serveur, ms) : quand le masquage aura lieu, 0 = aucun. Lu par les panneaux (compte à rebours).
 	const timers = {};
 	const sig = (s) => s && JSON.stringify([s.title, s.subtitle, s.kicker, s.style, s.source, s.casterIndex, s.duration]);
+	const setHideAt = (side, t) => { if (lt.value && lt.value[side] && (+lt.value[side].hideAt || 0) !== t) lt.value[side].hideAt = t; };
 	lt.on('change', (v, old) => {
-		if (!v || !v.left || !v.right) { lt.value = LIVE.normalizeLowerThird(v); return; }
-		for (const side of ['left', 'right']) {
+		if (!LIVE.isCompleteLowerThird(v)) { lt.value = LIVE.normalizeLowerThird(v); return; }
+		for (const side of LIVE.SIDE_KEYS) {
 			const s = v[side], o = old && old[side];
-			if (!s || !s.visible) { clearTimeout(timers[side]); timers[side] = null; continue; }
+			if (!s || !s.visible) { clearTimeout(timers[side]); timers[side] = null; setHideAt(side, 0); continue; }
 			const changed = !o || !o.visible || sig(o) !== sig(s);
-			if (changed && +s.duration > 0) {
-				clearTimeout(timers[side]);
+			if (!changed) continue;
+			clearTimeout(timers[side]); timers[side] = null;
+			if (+s.duration > 0) {
 				timers[side] = setTimeout(() => { if (lt.value && lt.value[side]) lt.value[side].visible = false; }, +s.duration * 1000);
-			}
+				setHideAt(side, Date.now() + +s.duration * 1000);
+			} else setHideAt(side, 0);
 		}
 	});
+	// Au démarrage, aucun minuteur ne tourne encore : un hideAt resté d'avant le redémarrage est effacé
+	for (const side of LIVE.SIDE_KEYS) if (lt.value && lt.value[side] && +lt.value[side].hideAt) lt.value[side].hideAt = 0;
 
 	// ---------- Raccourcis score de série ----------
 	// live:series { team: 'A'|'B', delta: 1|-1 } — met à jour match.maps[].winner / status / currentMap

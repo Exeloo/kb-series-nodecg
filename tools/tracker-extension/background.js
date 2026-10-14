@@ -1,4 +1,5 @@
-// Service worker de l'extension « KB SERIES · Import tracker.gg → NodeCG ».
+// Arrière-plan de l'extension « KB SERIES · Import tracker.gg → NodeCG » : service worker sous Chrome,
+// script d'arrière-plan sous Firefox (manifest.json déclare les deux, chaque navigateur prend le sien).
 //
 // Pourquoi : tracker.gg (Cloudflare) refuse les requêtes du serveur NodeCG (403). Depuis le navigateur de
 // l'utilisateur, sur une page tracker.gg, l'API répond. On ouvre donc le profil dans un onglet en arrière-plan,
@@ -84,7 +85,16 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 // ---------- Import d'un joueur ----------
+// Firefox peut installer l'extension sans l'accès à tracker.gg (accordé ensuite par l'utilisateur) : on le vérifie avant d'ouvrir l'onglet
+const TRACKER_ORIGINS = { origins: ['https://tracker.gg/*', 'https://api.tracker.gg/*'] };
+async function hasTrackerAccess() {
+	try { return await chrome.permissions.contains(TRACKER_ORIGINS); } catch { return true; }
+}
+
 async function importOne(riotId, playlist, origin, send, postViaPage) {
+	if (!(await hasTrackerAccess())) {
+		throw new Error('L\'extension n\'a pas l\'autorisation d\'accéder à tracker.gg : clique sur son icône dans la barre d\'outils, puis sur « Autoriser l\'accès ».');
+	}
 	send({ type: 'status', state: 'opening', message: `Ouverture du profil tracker.gg de ${riotId}…` });
 	const tab = await chrome.tabs.create({ url: profileUrl(riotId), active: false });
 	let keepTab = false;
@@ -133,6 +143,8 @@ function explain(r) {
 	if (s === 451 || /private/i.test(apiMsg)) return 'Profil privé : le joueur doit se connecter sur tracker.gg (Riot) pour rendre ses stats publiques.';
 	if (s === 429) return 'tracker.gg limite les requêtes : réessaie dans une minute.';
 	if (s === 403) return 'Accès refusé par tracker.gg (403). Ouvre tracker.gg dans un onglet, passe la vérification éventuelle, puis réessaie.';
+	// Requête bloquée avant d'avoir une réponse lisible (Cloudflare renvoie un 403 sans en-têtes CORS) : même cause qu'un 403
+	if (!s && /NetworkError|Failed to fetch|Load failed/i.test(r.error || '')) return 'tracker.gg a bloqué la requête (vérification anti-robot ?). Ouvre tracker.gg dans un onglet de ce navigateur, passe la vérification éventuelle, puis réessaie.';
 	if (!s) return `Requête tracker.gg impossible : ${r.error || 'erreur réseau'}`;
 	return `tracker.gg a répondu ${s}${apiMsg ? ' : ' + apiMsg : ''}`;
 }
@@ -141,15 +153,19 @@ async function tabExists(tabId) {
 	try { await chrome.tabs.get(tabId); return true; } catch { return false; }
 }
 
-/** Attend status "complete" de l'onglet (ou le délai max, sans erreur : on tente quand même le fetch) */
+/**
+ * Attend que la page tracker.gg de l'onglet soit chargée (ou le délai max, sans erreur : on tente quand même le fetch).
+ * Firefox ouvre d'abord l'onglet sur about:blank, déjà « complete » : on attend donc aussi que l'adresse soit celle de tracker.gg.
+ */
 function waitForLoad(tabId, timeout) {
 	return new Promise((resolve) => {
 		let done = false;
+		const loaded = (t) => t && t.status === 'complete' && /^https:\/\/tracker\.gg\//.test(t.url || '');
 		const finish = () => { if (done) return; done = true; chrome.tabs.onUpdated.removeListener(onUpd); clearTimeout(timer); resolve(); };
-		const onUpd = (id, info) => { if (id === tabId && info.status === 'complete') finish(); };
+		const onUpd = (id, info, tab) => { if (id === tabId && loaded(tab)) finish(); };
 		const timer = setTimeout(finish, timeout);
 		chrome.tabs.onUpdated.addListener(onUpd);
-		chrome.tabs.get(tabId).then((t) => { if (t.status === 'complete') finish(); }).catch(finish);
+		chrome.tabs.get(tabId).then((t) => { if (loaded(t)) finish(); }).catch(finish);
 	});
 }
 

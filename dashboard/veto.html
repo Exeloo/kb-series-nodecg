@@ -6,6 +6,8 @@
 	<!--
 		Panneau Veto : déroulé du veto map par map (ban / pick / decider, choix du côté, annulation), séquence prévue et pool de maps.
 		Écrit les replicants `veto` (étapes jouées, pool) et `matchVeto` (préréglage et séquence prévue) ;
+		Liens des équipes : replicants `vetoTeams` (open : les équipes peuvent jouer) et `vetoTeamsInfo` (adresses, équipes connectées),
+		message 'vetoTeams:newLinks' (voir extension/veto-teams.js). Les choix des équipes arrivent dans `veto` comme ceux de ce panneau.
 		affiche / masque Veto, Versus et Récap du veto via KBO (replicant `matchGraphics`). N'envoie aucun message.
 	-->
 	<link rel="stylesheet" href="../shared/dashboard.css">
@@ -45,16 +47,65 @@
 		.sq { display: grid; grid-template-columns: 22px 1fr 1fr 30px; gap: 6px; align-items: center; }
 		.sq span { font-size: 11px; color: var(--muted); text-align: center; }
 		.sq select { padding: 4px 6px; }
+		#setBox { border: 0; padding: 0; margin: 0; min-width: 0; }
+		#setBox:disabled { opacity: .55; }
+		#settings .ptitle { margin-top: 10px; }
+		#settings .seg { margin-top: 0; }
+		.seg button.active { background: var(--blue); color: #fff; outline: 0; }
+		.rot { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 5px; }
+		.rot button { position: relative; height: 40px; padding: 0 8px; overflow: hidden; text-align: left; border: 2px solid var(--line); background: #000 var(--img, none) center / cover no-repeat; font-weight: 800; text-transform: uppercase; font-size: 12px; letter-spacing: .04em; }
+		.rot button::before { content: ''; position: absolute; inset: 0; background: rgba(10, 15, 46, .78); }
+		.rot button span { position: relative; }
+		.rot button.on { border-color: var(--ok); }
+		.rot button.on::before { background: linear-gradient(90deg, rgba(10, 15, 46, .85), rgba(10, 15, 46, .3)); }
+		.rot button.on span::before { content: '✓ '; color: var(--ok); }
+		.rot button:not(.on) { color: var(--muted); }
 		.pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 2px 8px; margin-top: 6px; }
 		.pool label { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text); font-size: 13px; cursor: pointer; }
 		.sq button.x { padding: 3px 8px; }
 		.mt0 { margin-top: 0; }
 		.ptitle { font-size: 12px; color: var(--muted); margin: 0 0 3px; }
+		#links summary { cursor: pointer; }
+		.lk { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; margin-top: 8px; }
+		.lk .who { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; }
+		.lk .who .sw { width: 10px; height: 10px; border-radius: 2px; background: var(--c); }
+		.lk .who .on { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--muted); }
+		.lk .who .on.yes { color: var(--ok); }
+		.lk input { font-size: 12px; }
+		.lk button { padding: 6px 10px; }
+		#lkSum { text-transform: none; letter-spacing: 0; font-weight: 400; }
 	</style>
 </head>
 <body>
 	<!-- Écrans du veto : AFFICHER / ● À L'ANTENNE -->
 	<div class="card" id="ovBox"></div>
+
+	<!-- Paramètres : format (BO), équipe qui commence, maps en rotation -->
+	<details id="settings" class="fold">
+		<summary>Paramètres du veto <span class="hint" id="setSum"></span></summary>
+		<fieldset id="setBox">
+			<div class="ptitle">Nombre de maps (même réglage que le format du panneau Match)</div>
+			<div class="seg" id="fmt"></div>
+			<div class="ptitle">Commence le veto</div>
+			<div class="seg" id="first"></div>
+			<div class="ptitle">Maps en rotation <span id="poolCount"></span></div>
+			<div class="rot" id="pool"></div>
+			<div class="row"><button type="button" class="shrink" id="poolAll">Tout cocher</button><button type="button" class="shrink" id="poolDefault">Rotation par défaut</button></div>
+		</fieldset>
+		<div class="hint" id="setOrder"></div>
+		<div id="setWarn"></div>
+	</details>
+
+	<!-- Liens envoyés aux équipes pour qu'elles fassent leur veto elles-mêmes -->
+	<details id="links" class="fold">
+		<summary>Liens pour les équipes <span class="hint" id="lkSum"></span></summary>
+		<label class="chk"><input type="checkbox" id="lkOpen"> Les équipes peuvent jouer leur veto depuis leur lien</label>
+		<div class="hint">Décoché : leurs pages restent visibles mais en pause. Tu gardes toujours la main ici (clic sur une map, côté, annuler).</div>
+		<div id="lkWarn"></div>
+		<div id="lkRows"></div>
+		<div class="row"><button type="button" class="danger shrink" id="lkNew" title="Les liens actuels cessent de marcher (à faire entre deux matchs si un lien a circulé)">Nouveaux liens</button><span></span></div>
+		<div class="msg" id="lkMsg"></div>
+	</details>
 
 	<div class="now" id="now"></div>
 	<div id="sideBox"></div>
@@ -68,26 +119,16 @@
 	<h3>Déroulé</h3>
 	<div class="hist" id="hist"></div>
 
-	<details id="cfg">
-		<summary>Format du veto &amp; pool de maps</summary>
-		<div class="card">
-			<label for="preset">Préréglage</label>
-			<div class="row mt0">
-				<select id="preset"><option value="bo1">BO1 — ban ×6 + decider</option><option value="bo3">BO3 — ban, ban, pick, pick, ban, ban, decider</option><option value="bo5">BO5 — ban, ban, pick ×4, decider</option></select>
-				<button class="shrink" id="applyPreset">Appliquer</button>
-			</div>
-			<div class="hint" id="seqHint"></div>
-			<div class="seq" id="seq"></div>
-			<div class="row"><button id="addStep" class="shrink">+ Étape</button><span></span></div>
-		</div>
-		<div class="card">
-			<div class="ptitle">Pool de maps (<span id="poolCount"></span>)</div>
-			<div class="pool" id="pool"></div>
-			<div class="hint">Les maps viennent de valorant-api (replicant valorantData). L'ordre d'affichage suit l'ordre alphabétique.</div>
-		</div>
+	<details id="cfg" class="fold">
+		<summary>Ordre du veto personnalisé (avancé)</summary>
+		<div class="hint" id="seqMode"></div>
+		<div class="hint" id="seqHint"></div>
+		<div class="seq" id="seq"></div>
+		<div class="row"><button id="addStep" class="shrink">+ Étape</button><button class="shrink hidden" id="autoSeq">Revenir à l'ordre automatique</button></div>
 	</details>
 
 	<script src="../shared/kb.js"></script>
+	<script src="../shared/defaults.js"></script>
 	<script src="../shared/match.js"></script>
 	<script src="../shared/dash.js"></script>
 	<script src="../shared/overlays.js"></script>
@@ -102,6 +143,41 @@
 		const sideTeamOf = (steps, i) => steps[i].sideTeam || M.defaultSideTeam(steps, i);
 
 		const msg = (text, kind = '') => KBD.flash('msg', text, kind, 5000);
+
+		/* ---------- Liens des équipes (lien A = équipe A du match, lien B = équipe B) ---------- */
+		const teamLinks = nodecg.Replicant('vetoTeams');
+		const teamInfo = nodecg.Replicant('vetoTeamsInfo');
+		const LOCAL = ['localhost', '127.0.0.1', '[::1]'];
+		// Sur ce PC, location donne « localhost » : inutilisable par les équipes, on prend l'adresse réseau du serveur
+		const baseUrl = () => (!LOCAL.includes(location.hostname) ? location.origin : ((teamInfo.value && teamInfo.value.urls) || [])[0] || location.origin);
+		const linkOf = (k) => { const t = teamLinks.value && teamLinks.value.tokens && teamLinks.value.tokens[k]; return t ? `${baseUrl()}/valorant-tournament/veto/${t}` : ''; };
+		function renderLinks() {
+			const v = teamLinks.value || {}, inf = teamInfo.value || {}, on = inf.online || {};
+			$('#lkOpen').checked = !!v.open;
+			const urls = inf.urls || [];
+			$('#lkWarn').innerHTML = inf.lan === false
+				? '<div class="msg err">La régie n\'écoute que sur ce PC : les équipes ne pourront pas ouvrir ces liens. Lance-la avec <b>start-reseau.bat</b> (ou NODECG_HOST=0.0.0.0).</div>'
+				: !urls.length && LOCAL.includes(location.hostname) ? '<div class="msg err">Aucune adresse réseau trouvée : ce PC est-il connecté au réseau ?</div>'
+				: urls.length > 1 && LOCAL.includes(location.hostname) ? `<div class="hint">Plusieurs réseaux sur ce PC : liens faits avec ${KB.esc(baseUrl())}. Autres adresses : ${urls.slice(1).map(KB.esc).join(', ')}.</div>` : '';
+			$('#lkRows').innerHTML = ['A', 'B'].map((k) => {
+				const n = !!on[k], url = linkOf(k);
+				return `<div class="lk"><span class="who" style="--c:${esc(color(k))}"><span class="sw"></span>Équipe ${k} : ${esc(tag(k))}<span class="on${n ? ' yes' : ''}">${n ? '● page ouverte' : 'page fermée'}</span></span>
+					<input readonly value="${esc(url)}" aria-label="Lien de l'équipe ${k}" onclick="this.select()">
+					<button type="button" data-copy="${k}">Copier</button><button type="button" data-open="${k}" title="Ouvre la page de l'équipe ${k} (pour vérifier ce qu'elle voit)">Ouvrir</button></div>`;
+			}).join('');
+			const nOn = (on.A ? 1 : 0) + (on.B ? 1 : 0);
+			$('#lkSum').textContent = `· ${v.open ? 'ouvert' : 'en pause'} · ${nOn}/2 équipe${nOn > 1 ? 's' : ''} connectée${nOn > 1 ? 's' : ''}`;
+		}
+		$('#lkOpen').onchange = (e) => { if (teamLinks.value) teamLinks.value.open = e.target.checked; };
+		$('#lkRows').addEventListener('click', (e) => {
+			const o = e.target.closest('[data-open]');
+			if (o) window.open(linkOf(o.dataset.open), '_blank', 'noopener');
+			const b = e.target.closest('[data-copy]');
+			if (b) KBD.copy(linkOf(b.dataset.copy)).then((ok) => { b.textContent = ok ? 'Copié ✓' : 'Échec'; setTimeout(() => (b.textContent = 'Copier'), 1500); });
+		});
+		KBD.confirm('#lkNew', () => nodecg.sendMessage('vetoTeams:newLinks')
+			.then(() => KBD.flash('lkMsg', 'Nouveaux liens créés : renvoie-les aux équipes (les anciens ne marchent plus).', 'ok', 6000))
+			.catch((e) => KBD.flash('lkMsg', String((e && e.message) || e), 'err', 5000)), { label: 'Les anciens liens ne marcheront plus ?' });
 
 		/* ---------- Écrans (exclusivité gérée par KBO) ---------- */
 		const OVERLAYS = ['veto', 'versus', 'veto-recap'];
@@ -197,48 +273,71 @@
 		};
 		KBD.confirm('#reset', () => { veto().steps = []; msg('Veto réinitialisé.', 'ok'); }, { label: 'Effacer tout le veto ?' });
 
-		/* ---------- Configuration ---------- */
-		// Le menu Préréglage ne suit le replicant que lorsque celui-ci change : un choix en attente d'« Appliquer » est gardé
-		let shownFormat = null;
+		/* ---------- Paramètres : format, équipe qui commence, maps en rotation ----------
+		   L'ordre des étapes est recalculé par le serveur (extension/match.js) tant qu'il n'a pas été modifié à la main ;
+		   le format est le même que celui du panneau Match. Verrouillé pendant un veto en cours. */
+		const FMT_LABEL = { bo1: 'BO1 · 1 map', bo3: 'BO3 · 3 maps', bo5: 'BO5 · 5 maps' };
+		const orderText = (seq) => seq.map((p) => (p.action === 'decider' ? 'Decider' : `${M.ACTION_FR[p.action]} ${tag(p.team)}`)).join(' · ');
+		let settingsOpened = false;
 		function renderCfg() {
-			const seq = plan.value.sequence || [];
-			if (plan.value.format !== shownFormat) { shownFormat = plan.value.format; $('#preset').value = shownFormat || 'bo3'; }
-			const pool = veto().pool || [];
-			$('#seq').innerHTML = seq.map((p, i) => `<div class="sq" data-i="${i}"><span>${i + 1}</span>
-				<select data-k="action" aria-label="Action de l'étape ${i + 1}">${['ban', 'pick', 'decider'].map((a) => `<option value="${a}" ${a === p.action ? 'selected' : ''}>${M.ACTION_FR[a]}</option>`).join('')}</select>
-				<select data-k="team" aria-label="Équipe de l'étape ${i + 1}" ${p.action === 'decider' ? 'disabled' : ''}>${p.action === 'decider' ? '<option>—</option>' : ['A', 'B'].map((t) => `<option value="${t}" ${t === p.team ? 'selected' : ''}>Équipe ${t} (${esc(tag(t))})</option>`).join('')}</select>
-				<button class="x" data-del title="Retirer l'étape">✕</button></div>`).join('');
-			const bans = seq.filter((s) => s.action === 'ban').length, chosen = seq.length - bans;
-			$('#seqHint').textContent = `${seq.length} étapes (${bans} ban, ${chosen} pick/decider) pour un pool de ${pool.length} maps`
-				+ (seq.length > pool.length ? ' — attention : plus d\'étapes que de maps !' : seq.length < pool.length ? ` — ${pool.length - seq.length} map(s) ne seront pas jouées ni bannies.` : '.');
+			const p = plan.value, seq = p.sequence || [], pool = veto().pool || [], started = (veto().steps || []).length > 0;
+			// Ouvert d'office tant que le veto n'a pas commencé (au chargement du panneau)
+			if (!settingsOpened) { settingsOpened = true; $('#settings').open = !started; }
+			$('#setBox').disabled = started;
+			$('#fmt').innerHTML = M.FORMATS.map((f) => `<button type="button" data-fmt="${f}" class="${p.format === f ? 'active' : ''}">${FMT_LABEL[f]}</button>`).join('');
+			$('#first').innerHTML = ['A', 'B'].map((k) => `<button type="button" data-first="${k}" class="${(p.first || 'A') === k ? 'active' : ''}">Équipe ${k} · ${esc(tag(k))}</button>`).join('');
 			const all = [...new Set([...KB.mapNames(), ...pool])].sort();
-			$('#pool').innerHTML = all.map((m) => `<label><input type="checkbox" value="${esc(m)}" ${pool.includes(m) ? 'checked' : ''}> ${esc(m)}</label>`).join('');
-			$('#poolCount').textContent = `${pool.length} sélectionnée${pool.length > 1 ? 's' : ''}`;
+			$('#pool').innerHTML = all.map((m) => { const d = KB.map(m); return `<button type="button" data-map="${esc(m)}" class="${pool.includes(m) ? 'on' : ''}" aria-pressed="${pool.includes(m)}" style="${d ? `--img:url('${esc(d.listView)}')` : ''}"><span>${esc(m)}</span></button>`; }).join('')
+				|| '<div class="empty">Aucune map connue : rafraîchis les données Valorant (panneau Données).</div>';
+			$('#poolCount').textContent = `(${pool.length})`;
+			$('#setSum').textContent = `· ${(p.format || '').toUpperCase()} · ${pool.length} maps${p.custom ? ' · ordre perso' : ''}`;
+			$('#setOrder').textContent = seq.length ? `Ordre : ${orderText(seq)}` : '';
+			const warn = [];
+			if (started) warn.push('<div class="hint">Veto en cours : <b>Réinitialiser le veto</b> pour changer ces paramètres.</div>');
+			if (pool.length < M.minMaps(p.format)) warn.push(`<div class="msg err">${(p.format || '').toUpperCase()} : il faut au moins ${M.minMaps(p.format)} maps en rotation (${pool.length} cochée${pool.length > 1 ? 's' : ''}).</div>`);
+			if (p.custom) warn.push('<div class="msg info">Ordre modifié à la main : il ne suit plus le format ni le nombre de maps (voir « Ordre du veto personnalisé »).</div>');
+			$('#setWarn').innerHTML = warn.join('');
+
+			// Éditeur avancé
+			$('#seqMode').textContent = p.custom ? 'Ordre personnalisé : modifié à la main.' : 'Ordre automatique (calculé depuis les paramètres). Toute modification ici le rend personnalisé.';
+			$('#autoSeq').classList.toggle('hidden', !p.custom);
+			$('#seq').innerHTML = seq.map((s, i) => `<div class="sq" data-i="${i}"><span>${i + 1}</span>
+				<select data-k="action" aria-label="Action de l'étape ${i + 1}">${['ban', 'pick', 'decider'].map((a) => `<option value="${a}" ${a === s.action ? 'selected' : ''}>${M.ACTION_FR[a]}</option>`).join('')}</select>
+				<select data-k="team" aria-label="Équipe de l'étape ${i + 1}" ${s.action === 'decider' ? 'disabled' : ''}>${s.action === 'decider' ? '<option>—</option>' : ['A', 'B'].map((t) => `<option value="${t}" ${t === s.team ? 'selected' : ''}>Équipe ${t} (${esc(tag(t))})</option>`).join('')}</select>
+				<button class="x" data-del title="Retirer l'étape">✕</button></div>`).join('');
+			$('#seqHint').textContent = `${seq.length} étapes pour ${pool.length} maps en rotation`
+				+ (seq.length > pool.length ? ' — attention : plus d\'étapes que de maps !' : seq.length < pool.length ? ` — ${pool.length - seq.length} map(s) ne seront ni jouées ni bannies.` : '.');
 		}
-		const applyPreset = () => { const f = $('#preset').value; plan.value = { format: f, sequence: KB.clone(M.VETO_PRESETS[f]) }; msg(`Préréglage ${f.toUpperCase()} appliqué.`, 'ok'); };
-		// En plein veto, remplacer la séquence demande confirmation
-		$('#applyPreset').onclick = (e) => {
-			const btn = e.currentTarget;
-			if ((veto().steps || []).length || btn.classList.contains('armed')) KBD.arm(btn, applyPreset, { label: 'Veto en cours : remplacer ?' });
-			else applyPreset();
-		};
+		const locked = () => (veto().steps || []).length > 0;
+		$('#fmt').addEventListener('click', (e) => { const b = e.target.closest('[data-fmt]'); if (b && !locked()) plan.value.format = b.dataset.fmt; });
+		$('#first').addEventListener('click', (e) => { const b = e.target.closest('[data-first]'); if (b && !locked()) plan.value.first = b.dataset.first; });
+		$('#pool').addEventListener('click', (e) => {
+			const b = e.target.closest('[data-map]'); if (!b || locked()) return;
+			const m = b.dataset.map, pool = veto().pool || [];
+			const all = [...new Set([...KB.mapNames(), ...pool])].sort();
+			// Le pool garde l'ordre alphabétique (c'est l'ordre d'affichage du veto)
+			veto().pool = pool.includes(m) ? pool.filter((x) => x !== m) : all.filter((x) => x === m || pool.includes(x));
+		});
+		$('#poolAll').onclick = () => { if (!locked()) veto().pool = [...new Set([...KB.mapNames(), ...(veto().pool || [])])].sort(); };
+		$('#poolDefault').onclick = () => { if (!locked()) veto().pool = [...KBDefaults.DEFAULT_POOL]; };
+		const custom = (fn) => { fn(plan.value.sequence); plan.value.custom = true; };
 		$('#seq').addEventListener('change', (e) => {
 			const row = e.target.closest('.sq'); if (!row) return;
-			const p = plan.value.sequence[+row.dataset.i];
-			p[e.target.dataset.k] = e.target.value;
-			if (p.action === 'decider') p.team = null; else if (!p.team) p.team = 'A';
+			custom((seq) => {
+				const p = seq[+row.dataset.i];
+				p[e.target.dataset.k] = e.target.value;
+				if (p.action === 'decider') p.team = null; else if (!p.team) p.team = 'A';
+			});
 			e.target.blur();
 		});
-		$('#seq').addEventListener('click', (e) => { const b = e.target.closest('[data-del]'); if (b) plan.value.sequence.splice(+b.closest('.sq').dataset.i, 1); });
-		$('#addStep').onclick = () => plan.value.sequence.push({ action: 'ban', team: 'A' });
-		$('#pool').addEventListener('change', () => {
-			const checked = KB.$$('#pool input:checked').map((i) => i.value);
-			veto().pool = checked;
-		});
+		$('#seq').addEventListener('click', (e) => { const b = e.target.closest('[data-del]'); if (b) custom((seq) => seq.splice(+b.closest('.sq').dataset.i, 1)); });
+		$('#addStep').onclick = () => custom((seq) => seq.push({ action: 'ban', team: 'A' }));
+		$('#autoSeq').onclick = () => { plan.value.custom = false; msg('Ordre automatique rétabli.', 'ok'); };
 
 		// Une étape de la séquence en cours de modification n'est pas réécrite sous la souris
 		const safeRenderCfg = KBD.deferWhileEditing('#seq', renderCfg);
 		KB.watch(['match', 'teams', 'veto', 'valorantData', plan], render);
+		KB.watch(['match', 'teams', teamLinks, teamInfo], renderLinks);
 	</script>
 </body>
 </html>

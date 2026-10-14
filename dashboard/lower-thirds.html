@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Lower thirds</title>
+<!--
+	Lower thirds : moniteur « À l'antenne » (aperçu réel + état de chaque emplacement), plateau host / casters, lower thirds gauche / centre / droite (formulaire complet + presets), intervenants.
+	Écrit : liveLowerThird et liveLowerThirdPresets (via KBLT), casters (host + casters) ; visibilités via KBO.
+-->
+<link rel="stylesheet" href="../shared/dashboard.css">
+<style>
+	.presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+	.presets button { flex: 0 0 auto; font-size: 12px; padding: 6px 9px; }
+	.caster { display: grid; grid-template-columns: 88px 1fr 1fr auto; gap: 6px; margin-top: 6px; }
+	.caster button { padding: 6px 10px; }
+	.prow { display: flex; gap: 4px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--line); }
+	.prow:last-child { border-bottom: 0; }
+	.prow .pname { flex: 1; min-width: 0; }
+	.prow .pname small { display: block; color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.prow button { padding: 4px 7px; font-size: 12px; flex: 0 0 auto; }
+</style>
+</head>
+<body>
+	<!-- ===== À l'antenne ===== -->
+	<h3>À l'antenne</h3>
+	<div class="card" id="ltMonitor"></div>
+
+	<!-- ===== Plateau ===== -->
+	<h3>Plateau : host et casters</h3>
+	<div class="card" id="crew"></div>
+
+	<!-- ===== Lower thirds ===== -->
+	<h3>Lower thirds (gauche / centre / droite)</h3>
+	<div id="ltCards"></div>
+	<h3>Mes presets de lower third</h3>
+	<div class="card"><div id="presetList"></div><div class="hint">Les presets automatiques (host, casters, pause technique, prochain match) restent toujours disponibles en plus.</div></div>
+
+	<!-- ===== Intervenants ===== -->
+	<h3>Host et casters (plateau et presets des lower thirds)</h3>
+	<div class="card">
+		<div id="casters"></div>
+		<div class="hint lt-dirty" id="cState"></div>
+		<div class="row"><button type="button" id="addHost">+ Ajouter un host</button><button type="button" id="addCaster">+ Ajouter un caster</button></div>
+		<div class="row"><button type="button" class="primary" id="saveCasters">Enregistrer</button></div>
+		<div class="msg" id="cMsg"></div>
+	</div>
+
+<script src="../shared/kb.js"></script>
+<script src="../shared/live.js"></script>
+<script src="../shared/dash.js"></script>
+<script src="../shared/overlays.js"></script>
+<script src="../shared/lt-form.js"></script>
+<script>
+	const D = LIVE.defaults;
+	const ltp = nodecg.Replicant('liveLowerThirdPresets', { defaultValue: D.liveLowerThirdPresets });
+	const $ = (id) => document.getElementById(id);
+
+	// ---------- Plateau + lower thirds (3 emplacements) : formulaires partagés avec la Régie ----------
+	KBLT.mountMonitor('#ltMonitor');
+	KBLT.mountCrew('#crew');
+	const ltForm = KBLT.mount('#ltCards');
+
+	// Liste éditable des presets personnalisés (rendu différé pendant un renommage)
+	const presets = () => (Array.isArray(ltp.value) ? ltp.value : []);
+	function renderPresetList() {
+		const mine = presets();
+		$('presetList').innerHTML = mine.length ? mine.map((p, i) => `<div class="prow" data-i="${i}">
+			<span class="pname"><b>${KB.esc(p.name)}</b><small>${KB.esc(LIVE.styles[p.style] ? LIVE.styles[p.style].label : p.style)} · ${KB.esc([p.title, p.subtitle].filter(Boolean).join(' — ') || (p.source === 'caster' ? 'intervenant ' + ((+p.casterIndex || 0) + 1) : ''))}</small></span>
+			<button type="button" data-p="left" title="Afficher à gauche">◀ G</button><button type="button" data-p="center" title="Afficher au centre">C</button><button type="button" data-p="right" title="Afficher à droite">D ▶</button>
+			<button type="button" data-p="up" title="Monter" ${i ? '' : 'disabled'}>↑</button><button type="button" data-p="down" title="Descendre" ${i < mine.length - 1 ? '' : 'disabled'}>↓</button>
+			<button type="button" data-p="ren">Renommer</button><button type="button" class="danger" data-p="del" title="Supprimer">✕</button></div>`).join('')
+			: '<p class="empty">Aucun preset perso : remplis un lower third puis « Enregistrer comme preset ».</p>';
+	}
+	const safePresetList = KBD.deferWhileEditing('presetList', renderPresetList);
+	$('presetList').addEventListener('click', (e) => {
+		const b = e.target.closest('button[data-p]');
+		if (!b) return;
+		const row = b.closest('.prow'), i = +row.dataset.i;
+		const list = presets().map((p) => ({ ...p }));
+		const a = b.dataset.p;
+		if (LIVE.SIDES[a]) return ltForm.applyPreset(a, list[i]);
+		if (a === 'up' || a === 'down') { const j = a === 'up' ? i - 1 : i + 1; [list[i], list[j]] = [list[j], list[i]]; ltp.value = list; return; }
+		if (a === 'del') return KBD.arm(b, () => { list.splice(i, 1); ltp.value = list; }, { label: 'Supprimer ?', ms: 3000 });
+		if (a === 'ren') {
+			const span = row.querySelector('.pname');
+			span.innerHTML = `<label class="vh" for="renName">Nouveau nom du preset</label><input id="renName" value="${KB.esc(list[i].name)}">`;
+			const inp = span.querySelector('input'); inp.focus(); inp.select();
+			let closed = false;
+			const done = () => { if (closed) return; closed = true; const n = inp.value.trim(); if (n && n !== list[i].name) { list[i].name = n; ltp.value = list; } else safePresetList(); };
+			// Entrée : on quitte le champ (qui valide) pour que la liste se remette à jour tout de suite
+			inp.onkeydown = (ev) => { if (ev.key === 'Enter') inp.blur(); if (ev.key === 'Escape') { closed = true; inp.blur(); renderPresetList(); } };
+			inp.onblur = done;
+		}
+	});
+
+	// ---------- Intervenants (host, casters) : brouillon gardé jusqu'à « Enregistrer » ----------
+	const casterRows = () => [...$('casters').querySelectorAll('.caster')].map((r) => ({
+		name: r.querySelector('[data-f="name"]').value.trim(), handle: r.querySelector('[data-f="handle"]').value.trim(), role: r.querySelector('[data-f="role"]').value,
+	}));
+	const roleOptions = (c) => Object.entries(LIVE.ROLES).map(([k, l]) => `<option value="${k}"${LIVE.roleOf(c) === k ? ' selected' : ''}>${l}</option>`).join('');
+	function drawCasters(list) {
+		$('casters').innerHTML = list.map((c, i) => `<div class="caster">
+			<label class="vh" for="caster-${i}-role">Rôle de l'intervenant ${i + 1}</label><select id="caster-${i}-role" data-f="role">${roleOptions(c)}</select>
+			<label class="vh" for="caster-${i}-name">Nom de l'intervenant ${i + 1}</label><input id="caster-${i}-name" data-f="name" value="${KB.esc(c.name)}" placeholder="Nom">
+			<label class="vh" for="caster-${i}-handle">Pseudo de l'intervenant ${i + 1}</label><input id="caster-${i}-handle" data-f="handle" value="${KB.esc(c.handle)}" placeholder="@handle">
+			<button type="button" class="danger" data-del="${i}" title="Retirer de la liste (appliqué à l'enregistrement)">✕</button></div>`).join('') || '<p class="empty">Aucun intervenant</p>';
+	}
+	const castersForm = KBD.bindDirty('casters', {
+		read: casterRows,
+		fill: drawCasters,
+		live: () => KB.rep.casters.value && KB.rep.casters.value.map((c) => ({ name: c.name || '', handle: c.handle || '', role: LIVE.roleOf(c) })),
+		onState: (dirty) => { $('saveCasters').disabled = !dirty; $('cState').textContent = dirty ? 'Modifications non enregistrées' : ''; },
+	});
+	$('casters').addEventListener('click', (e) => {
+		const b = e.target.closest('[data-del]');
+		if (!b) return;
+		const list = casterRows();
+		list.splice(+b.dataset.del, 1);
+		drawCasters(list);
+		castersForm.sync();
+	});
+	$('addCaster').onclick = () => { drawCasters([...casterRows(), { name: '', handle: '', role: 'caster' }]); castersForm.sync(); };
+	$('addHost').onclick = () => { drawCasters([...casterRows(), { name: '', handle: '', role: 'host' }]); castersForm.sync(); };
+	$('saveCasters').onclick = () => {
+		const list = casterRows().filter((c) => c.name || c.handle);
+		KB.rep.casters.value = list;
+		drawCasters(list);
+		KBD.flash('cMsg', 'Host et casters enregistrés', 'ok', 3500);
+	};
+
+	KB.watch([ltp], safePresetList);
+	KB.watch(['casters'], () => castersForm.sync());
+</script>
+</body>
+</html>

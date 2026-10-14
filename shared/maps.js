@@ -21,6 +21,7 @@
 	//   coverIn    entrée : du 1er volet jusqu'à ce que le dernier (fond nuit + logo) soit en place
 	//   holdLogo   tenue écran couvert, transition logo seul
 	//   holdMap    tenue écran couvert, transition avec map
+	//   holdReplay tenue écran couvert, transition replay (titre « REPLAY »)
 	//   revealOut  sortie : du départ du 1er volet sortant jusqu'à la fin
 	//   stagger    décalage entre deux volets
 	//   speed      vitesse globale (×0,5 lent … ×3 rapide), divise toutes les durées
@@ -38,14 +39,14 @@
 	//   presets    [{ name, settings }] préréglages enregistrés par l'utilisateur
 	// =====================================================================
 	KBM.TRANSITION_DEFAULT = {
-		coverIn: 600, holdLogo: 360, holdMap: 2500, revealOut: 540, stagger: 60, speed: 1,
+		coverIn: 600, holdLogo: 360, holdMap: 2500, holdReplay: 900, revealOut: 540, stagger: 60, speed: 1,
 		direction: 'ltr', angle: 20, easing: 'smooth', panels: 3, palette: 'theme', slashes: true,
 		logoSize: 440, logoAnim: 'pop', logoFlare: true,
 		mapName: true, mapSplash: true, mapNumber: true, mapPick: false, mapZoom: 0.14, mapTitle: 'center',
 		presets: [],
 	};
 	KBM.TRANSITION_SCHEMA = {
-		coverIn: { min: 100, max: 5000, step: 10 }, holdLogo: { min: 0, max: 20000, step: 50 }, holdMap: { min: 0, max: 20000, step: 50 },
+		coverIn: { min: 100, max: 5000, step: 10 }, holdLogo: { min: 0, max: 20000, step: 50 }, holdMap: { min: 0, max: 20000, step: 50 }, holdReplay: { min: 0, max: 20000, step: 50 },
 		revealOut: { min: 100, max: 5000, step: 10 }, stagger: { min: 0, max: 600, step: 5 }, speed: { min: 0.5, max: 3, step: 0.05, float: true },
 		direction: { values: ['ltr', 'rtl', 'down', 'up', 'center', 'diag'] }, angle: { min: 0, max: 45, step: 1 },
 		easing: { values: ['smooth', 'linear', 'punchy', 'elastic'] }, panels: { min: 1, max: 6, step: 1 },
@@ -56,12 +57,20 @@
 	};
 	const D = KBM.TRANSITION_DEFAULT;
 	KBM.TRANSITION_PRESETS = {
-		rapide: { label: 'Rapide', coverIn: 450, holdLogo: 200, holdMap: 1200, revealOut: 420, stagger: 45 },
+		rapide: { label: 'Rapide', coverIn: 450, holdLogo: 200, holdMap: 1200, holdReplay: 500, revealOut: 420, stagger: 45 },
 		normal: { label: 'Normal' },
-		long: { label: 'Long sur la map', coverIn: 650, holdLogo: 500, holdMap: 4500, revealOut: 600, mapZoom: 0.22 },
-		coupure: { label: 'Coupure nette', coverIn: 220, holdLogo: 150, holdMap: 1200, revealOut: 220, stagger: 20, easing: 'linear', angle: 0, panels: 2, slashes: false, logoAnim: 'fade', logoFlare: false, mapZoom: 0.04 },
-		cinema: { label: 'Cinématique', coverIn: 1400, holdLogo: 900, holdMap: 4000, revealOut: 1300, stagger: 180, easing: 'smooth', direction: 'down', angle: 6, panels: 4, palette: 'mono', logoAnim: 'fade', logoSize: 380, mapZoom: 0.3, mapTitle: 'bottom', mapPick: true },
-		explosif: { label: 'Explosif', coverIn: 520, holdLogo: 500, holdMap: 2200, revealOut: 480, stagger: 70, easing: 'elastic', direction: 'center', angle: 25, panels: 5, palette: 'gold', logoAnim: 'zoom', logoSize: 520, mapPick: true },
+		long: { label: 'Long sur la map', coverIn: 650, holdLogo: 500, holdMap: 4500, holdReplay: 1200, revealOut: 600, mapZoom: 0.22 },
+		coupure: { label: 'Coupure nette', coverIn: 220, holdLogo: 150, holdMap: 1200, holdReplay: 400, revealOut: 220, stagger: 20, easing: 'linear', angle: 0, panels: 2, slashes: false, logoAnim: 'fade', logoFlare: false, mapZoom: 0.04 },
+		cinema: { label: 'Cinématique', coverIn: 1400, holdLogo: 900, holdMap: 4000, holdReplay: 1800, revealOut: 1300, stagger: 180, easing: 'smooth', direction: 'down', angle: 6, panels: 4, palette: 'mono', logoAnim: 'fade', logoSize: 380, mapZoom: 0.3, mapTitle: 'bottom', mapPick: true },
+		explosif: { label: 'Explosif', coverIn: 520, holdLogo: 500, holdMap: 2200, holdReplay: 1000, revealOut: 480, stagger: 70, easing: 'elastic', direction: 'center', angle: 25, panels: 5, palette: 'gold', logoAnim: 'zoom', logoSize: 520, mapPick: true },
+	};
+	// Types de transition : logo seul, logo + map, replay. Replicant `transition` : { at, map, kind? } (kind absent = ancien format)
+	KBM.TR_KINDS = { logo: 'Logo seul', map: 'Logo + map', replay: 'Replay' };
+	/** Type d'une transition : 'replay' | 'map' | 'logo'. Accepte une valeur du replicant transition, un type ou un booléen « avec map » */
+	KBM.trKind = (v) => {
+		if (v === 'replay' || v === 'map' || v === 'logo') return v;
+		if (v && typeof v === 'object') return v.kind === 'replay' ? 'replay' : v.map ? 'map' : 'logo';
+		return v ? 'map' : 'logo';
 	};
 	KBM.trRep = () => (KBM._trRep ||= nodecg.Replicant('mapsTransitionSettings', { defaultValue: KBM.TRANSITION_DEFAULT }));
 	/** Réglages nettoyés (bornés, valeurs par défaut si absent, rétro-compatible). Sans argument : valeur du replicant. */
@@ -143,17 +152,19 @@
 
 	/**
 	 * Modèle complet du stinger : timeline (ms réelles, vitesse incluse) + géométrie des volets à l'instant t.
-	 * { s, hasMap, speed, duration, coveredFrom, coveredTo, coveredMs, cut, base:{...}, panelsAt(t), slashesAt(t) }
+	 * kind : 'logo' | 'map' | 'replay' (un booléen « avec map » est encore accepté, cf. KBM.trKind).
+	 * { s, kind, hasMap, speed, duration, coveredFrom, coveredTo, coveredMs, cut, base:{...}, panelsAt(t), slashesAt(t) }
 	 * coveredFrom / coveredTo sont calculés par simulation de la géométrie réelle (direction, angle, easing, décalage, vitesse).
 	 */
 	const modelCache = new Map();
-	KBM.stingerModel = (settings, hasMap) => {
+	KBM.stingerModel = (settings, kind) => {
+		kind = KBM.trKind(kind);
 		const s = KBM.trSettings(settings === undefined ? undefined : settings || null);
-		const key = JSON.stringify([s, !!hasMap].map((x) => (x && x.presets ? { ...x, presets: 0 } : x)));
+		const key = JSON.stringify([s, kind].map((x) => (x && x.presets ? { ...x, presets: 0 } : x)));
 		if (modelCache.has(key)) return modelCache.get(key);
 		const ease = KBM.EASE[s.easing] || KBM.EASE.smooth;
 		const n = s.panels, st = n > 1 ? s.stagger : 0;
-		const hold = hasMap ? s.holdMap : s.holdLogo;
+		const hold = s[{ logo: 'holdLogo', map: 'holdMap', replay: 'holdReplay' }[kind]];
 		const inDur = Math.max(60, s.coverIn - (n - 1) * st);
 		const outDur = Math.max(60, s.revealOut - (n - 1) * st);
 		const exitAt = s.coverIn + hold;
@@ -183,7 +194,7 @@
 		const coveredFrom = best ? Math.ceil(best.from / sp) : 0, coveredTo = best ? Math.floor(best.to / sp) : 0;
 		const k = s.coverIn / 600, r = s.revealOut / 540;
 		const m = {
-			s, hasMap: !!hasMap, speed: sp, hold, k, r,
+			s, kind, hasMap: kind === 'map', speed: sp, hold, k, r,
 			base: { inDur, outDur, exitAt, end: endBase, panels },
 			coverIn: Math.round(s.coverIn / sp), revealOut: Math.round(s.revealOut / sp), exitAt: Math.round(exitAt / sp),
 			duration: Math.ceil(endBase / sp),
@@ -197,8 +208,8 @@
 		return m;
 	};
 	/** Compat : timings (duration, coveredFrom, coveredTo, coveredMs, cut…) */
-	KBM.stingerTiming = (settings, hasMap) => KBM.stingerModel(settings, hasMap);
-	KBM.STINGER = (() => { const t = KBM.stingerModel(D, false); return { duration: t.duration, coveredFrom: t.coveredFrom, coveredTo: t.coveredTo, cut: t.cut, point: t.cut }; })();
+	KBM.stingerTiming = (settings, kind) => KBM.stingerModel(settings, kind);
+	KBM.STINGER = (() => { const t = KBM.stingerModel(D, 'logo'); return { duration: t.duration, coveredFrom: t.coveredFrom, coveredTo: t.coveredTo, cut: t.cut, point: t.cut }; })();
 
 	/** Entrée de match.maps à l'index donné (null/undefined = currentMap). { entry, index, number, total } ou null */
 	KBM.mapAt = (index, match = KB.rep.match.value) => {

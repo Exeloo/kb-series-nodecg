@@ -47,6 +47,25 @@ async function checkNodecg() {
 }
 
 $('open').onclick = () => chrome.tabs.create({ url: regieOrigin + '/dashboard/' });
+
+// Firefox peut installer l'extension sans l'accès aux sites (tracker.gg, régie) : sans lui, rien ne marche.
+// Chrome l'accorde toujours à l'installation : la carte reste cachée.
+const manifest = chrome.runtime.getManifest();
+const ORIGINS = { origins: [...new Set([...(manifest.host_permissions || []), ...(manifest.content_scripts || []).flatMap((c) => c.matches || [])])] };
+async function checkPermissions() {
+	let ok = true;
+	try { ok = await chrome.permissions.contains(ORIGINS); } catch { /* API absente : on suppose accordé */ }
+	$('perm').classList.toggle('hidden', ok);
+	return ok;
+}
+// Appel direct dans le clic : Firefox n'ouvre la demande que pendant une action de l'utilisateur
+$('permBtn').onclick = () => {
+	chrome.permissions.request(ORIGINS).then((granted) => {
+		checkPermissions();
+		if (granted) { $('ncg').textContent = 'Accès autorisé : recharge la régie (F5).'; checkNodecg(); }
+	}).catch(() => {});
+};
+checkPermissions();
 chrome.storage.onChanged.addListener((changes, area) => { if (area === 'session' && changes.state) render(); });
 render();
 checkNodecg();

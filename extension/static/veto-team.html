@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Veto des maps</title>
+<!--
+	Page envoyée à une équipe (lien secret, voir extension/veto-teams.js) : ban / pick des maps et choix du côté quand c'est son tour.
+	Pas de NodeCG ici : état demandé chaque seconde à ./<jeton>/state, actions envoyées à ./<jeton>/action.
+	Le serveur refuse toute action hors tour : cette page ne fait qu'afficher et transmettre.
+-->
+<style>
+	@font-face { font-family: 'Barlow Condensed'; font-weight: 700; font-display: swap; src: url('/valorant-tournament/veto-assets/fonts/barlow-condensed-latin-700-normal.woff2') format('woff2'); }
+	@font-face { font-family: 'Barlow Condensed'; font-weight: 800; font-display: swap; src: url('/valorant-tournament/veto-assets/fonts/barlow-condensed-latin-800-normal.woff2') format('woff2'); }
+	@font-face { font-family: 'Poppins'; font-weight: 500; font-display: swap; src: url('/valorant-tournament/veto-assets/fonts/poppins-latin-500-normal.woff2') format('woff2'); }
+	@font-face { font-family: 'Poppins'; font-weight: 600; font-display: swap; src: url('/valorant-tournament/veto-assets/fonts/poppins-latin-600-normal.woff2') format('woff2'); }
+	@font-face { font-family: 'Poppins'; font-weight: 700; font-display: swap; src: url('/valorant-tournament/veto-assets/fonts/poppins-latin-700-normal.woff2') format('woff2'); }
+	:root {
+		--bg: #070b24; --panel: #0f1640; --panel-2: #151e52; --line: #26307a; --text: #eef0ff; --muted: #9aa3d6;
+		--gold: #c9b274; --red: #ff4655; --ok: #3ddc97; --me: #3b8fe6; --them: #ff4655;
+		--title: 'Barlow Condensed', 'Arial Narrow', sans-serif; --ui: 'Poppins', 'Segoe UI', system-ui, sans-serif;
+	}
+	* { box-sizing: border-box; }
+	html { color-scheme: dark; }
+	body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at top, #121a52 0%, var(--bg) 60%) fixed; color: var(--text); font: 500 15px/1.4 var(--ui); }
+	.wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+	header { display: flex; align-items: center; gap: 14px; }
+	header img.kbs { height: 44px; }
+	header .t { flex: 1; min-width: 0; }
+	header .t b { display: block; font: 800 22px/1 var(--title); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	header .t span { color: var(--muted); font-size: 13px; }
+	.live { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+	.live i { width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
+	.live.on i { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+
+	.vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; margin-top: 16px; }
+	.team { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: var(--panel); border: 2px solid transparent; min-width: 0; }
+	.team.B { flex-direction: row-reverse; text-align: right; }
+	.team.me { border-color: var(--c); box-shadow: 0 0 0 1px var(--c) inset; }
+	.team .logo { width: 40px; height: 40px; flex: 0 0 auto; border-radius: 6px; object-fit: contain; }
+	.team .mono { display: grid; place-items: center; background: var(--c); font: 800 15px var(--title); color: #fff; }
+	.team .nm { min-width: 0; }
+	.team .nm b { display: block; font: 800 20px/1.05 var(--title); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.team .nm small { color: var(--muted); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+	.team.me .nm small { color: var(--c); font-weight: 700; }
+	.vs .x { font: 800 20px var(--title); color: var(--muted); }
+
+	.status { margin-top: 16px; padding: 18px; border-radius: 10px; background: var(--panel-2); border-left: 6px solid var(--c, var(--gold)); }
+	.status .k { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+	.status .v { font: 800 clamp(26px, 6vw, 40px)/1.05 var(--title); text-transform: uppercase; margin-top: 4px; }
+	.status .v .ban { color: var(--red); } .status .v .pick { color: var(--ok); } .status .v .side { color: var(--gold); }
+	.status .h { margin-top: 6px; color: var(--muted); }
+	.status.go { animation: glow 1.6s ease-in-out infinite; }
+	@keyframes glow { 50% { box-shadow: 0 0 0 3px var(--c); } }
+
+	.sides { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+	.maps { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-top: 16px; }
+	.mb { position: relative; height: 96px; padding: 0; overflow: hidden; border-radius: 8px; border: 2px solid var(--line); background: #000 var(--img, none) center / cover no-repeat; color: var(--text); text-align: left; font: inherit; cursor: default; }
+	.mb::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(7, 11, 36, .9), rgba(7, 11, 36, .25)); }
+	.mb > * { position: relative; display: block; padding: 0 12px; }
+	.mb .nm { font: 800 24px/1 var(--title); text-transform: uppercase; letter-spacing: .03em; margin-top: 22px; }
+	.mb .st { margin-top: 6px; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.mb.ban { filter: grayscale(1); opacity: .5; } .mb.ban .st { color: var(--red); }
+	.mb.pick, .mb.decider { border-color: var(--c); } .mb.pick .st, .mb.decider .st { color: #fff; }
+	.mb.can { cursor: pointer; }
+	.mb.can:hover { border-color: var(--act); transform: translateY(-1px); }
+	.mb.sel { border-color: var(--act); box-shadow: 0 0 0 3px var(--act); }
+	.mb.off { opacity: .6; }
+
+	button.big { width: 100%; padding: 16px; border: 0; border-radius: 8px; font: 800 22px var(--title); text-transform: uppercase; letter-spacing: .06em; color: #fff; background: var(--act, var(--gold)); cursor: pointer; }
+	button.big.ghost { background: var(--panel); border: 2px solid var(--line); }
+	button.big:disabled { opacity: .5; cursor: wait; }
+	.confirm { position: sticky; bottom: 0; margin-top: 14px; padding: 12px 0 calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 30%); display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+	.err { margin-top: 12px; padding: 10px 12px; border-radius: 6px; background: rgba(255, 70, 85, .15); border: 1px solid var(--red); }
+
+	h2 { margin: 26px 0 8px; font: 700 13px var(--ui); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+	.hist { display: flex; flex-direction: column; gap: 4px; }
+	.hs { display: grid; grid-template-columns: 24px 70px 1fr auto; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 6px; background: var(--panel); font-size: 13px; }
+	.hs .i { color: var(--muted); }
+	.hs .a { font-weight: 700; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+	.hs .a.ban { color: var(--red); } .hs .a.pick { color: var(--ok); } .hs .a.decider { color: var(--gold); }
+	.hs .m { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.hs .t { color: var(--muted); font-size: 12px; }
+	.hs.todo { opacity: .4; }
+	.hs.now { outline: 2px solid var(--gold); opacity: 1; }
+	.hidden { display: none !important; }
+	.dead { margin-top: 40px; text-align: center; }
+	.dead b { display: block; font: 800 30px var(--title); text-transform: uppercase; }
+	@media (max-width: 560px) {
+		.vs { grid-template-columns: 1fr; }
+		.vs .x { display: none; }
+		.team.B { flex-direction: row; text-align: left; }
+		.maps { grid-template-columns: 1fr 1fr; }
+		.mb { height: 80px; } .mb .nm { font-size: 20px; margin-top: 16px; }
+		.hs { grid-template-columns: 22px 60px 1fr; } .hs .t { display: none; }
+	}
+</style>
+</head>
+<body>
+<div class="wrap">
+	<header>
+		<img class="kbs" src="/valorant-tournament/veto-assets/logo.png" alt="">
+		<div class="t"><b id="title">Veto des maps</b><span id="stage"></span></div>
+		<div class="live" id="live"><i></i><span>Connexion…</span></div>
+	</header>
+	<div id="main" class="hidden">
+		<div class="vs"><div class="team A" id="tA"></div><span class="x">VS</span><div class="team B" id="tB"></div></div>
+		<div class="status" id="status"><div class="k" id="sk"></div><div class="v" id="sv"></div><div class="h" id="sh"></div></div>
+		<div class="sides hidden" id="sides">
+			<button class="big" data-side="attack" style="--act: var(--red)">Attaque</button>
+			<button class="big" data-side="defense" style="--act: #3b8fe6">Défense</button>
+		</div>
+		<div class="maps" id="maps"></div>
+		<div class="err hidden" id="err"></div>
+		<div class="confirm hidden" id="confirm">
+			<button class="big ghost" id="cancel">Annuler</button>
+			<button class="big" id="ok"></button>
+		</div>
+		<h2>Déroulé du veto</h2>
+		<div class="hist" id="hist"></div>
+	</div>
+	<div class="dead hidden" id="dead"><b>Lien expiré</b><p>La régie a créé de nouveaux liens. Demande-lui le nouveau lien de ton équipe.</p></div>
+</div>
+<script>
+	const $ = (id) => document.getElementById(id);
+	const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+	const ACTION = { ban: 'Ban', pick: 'Pick', decider: 'Decider' };
+	const SIDE = { attack: 'Attaque', defense: 'Défense' };
+	const base = location.pathname.replace(/\/+$/, '');
+	let S = null;          // dernier état reçu du serveur
+	let choice = null;     // { type: 'map', map } | { type: 'side', side } en attente de confirmation
+	let sending = false;
+
+	const tag = (k) => (S && S.teams[k] ? S.teams[k].tag : 'Équipe ' + k);
+	const col = (k) => (S && S.teams[k] ? S.teams[k].color : 'var(--gold)');
+
+	function teamHtml(t, me) {
+		const logo = t.logo ? `<img class="logo" src="${esc(t.logo)}" alt="">`
+			: `<span class="logo mono">${esc((t.tag || t.name).slice(0, 3).toUpperCase())}</span>`;
+		return `${logo}<span class="nm"><b>${esc(t.name)}</b><small>${me ? 'Ton équipe' : 'Adversaire'}</small></span>`;
+	}
+
+	function render() {
+		if (!S) return;
+		$('main').classList.remove('hidden');
+		document.title = `Veto · ${tag(S.me)}`;
+		$('title').textContent = S.title || 'Veto des maps';
+		$('stage').textContent = S.stage;
+		for (const k of ['A', 'B']) {
+			const el = $('t' + k);
+			el.classList.toggle('me', k === S.me);
+			el.style.setProperty('--c', col(k));
+			el.innerHTML = teamHtml(S.teams[k], k === S.me);
+		}
+		// Choix en attente devenu impossible (la régie a joué, l'adversaire aussi…) : abandonné
+		if (choice && !((choice.type === 'map' && S.phase === 'map' && S.maps.some((m) => m.name === choice.map && !m.action)) || (choice.type === 'side' && S.phase === 'side'))) choice = null;
+
+		const t = S.turn, st = $('status');
+		const myAction = S.phase === 'map' ? t.action : S.phase === 'side' ? 'side' : null;
+		st.classList.toggle('go', !!myAction);
+		st.style.setProperty('--c', myAction ? col(S.me) : t && t.team ? col(t.team) : 'var(--gold)');
+		const step = S.total ? `Étape ${Math.min(S.index + 1, S.total)} / ${S.total}` : '';
+		if (S.phase === 'map') set(`${step} · à toi`, `<span class="${t.action}">${t.action === 'ban' ? 'Bannis' : 'Choisis'}</span> une map`, t.action === 'ban' ? 'Touche la map à bannir, puis confirme.' : 'Touche la map que ton équipe veut jouer, puis confirme. L\'adversaire choisira son côté.');
+		else if (S.phase === 'side') set('Choix du côté · à toi', `<span class="side">Ton côté</span> sur ${esc(t.map)}`, 'Choisis ATTAQUE ou DÉFENSE pour le début de la map, puis confirme.');
+		else if (S.phase === 'paused') set('En pause', 'Attends la régie', 'C\'est ton tour, mais la régie a mis le veto en pause. Il reprendra ici automatiquement.');
+		else if (S.phase === 'wait' && t && t.action === 'side') set('Choix du côté', `${esc(tag(t.team))} choisit son côté`, `Sur ${esc(t.map)}. Patiente…`);
+		else if (S.phase === 'wait' && t && t.action === 'decider') set(step, 'Map decider', 'La régie désigne la map decider. Patiente…');
+		else if (S.phase === 'wait') set(step, `Au tour de ${esc(tag(t.team))}`, `${ACTION[t.action]} en cours côté adversaire. Patiente…`);
+		else if (S.phase === 'done') set('Veto terminé', S.history.filter((h) => h.action !== 'ban' && h.map).map((h) => esc(h.map)).join(' · ') || '—', 'Bon match !');
+		else set('Veto pas encore prêt', 'Patiente', 'La régie prépare le veto (pool de maps, ordre des étapes).');
+
+		$('sides').classList.toggle('hidden', S.phase !== 'side');
+		$('sides').querySelectorAll('button').forEach((b) => b.classList.toggle('ghost', !!choice && choice.side !== b.dataset.side));
+
+		$('maps').style.setProperty('--act', S.phase === 'map' && t.action === 'ban' ? 'var(--red)' : col(S.me));
+		$('maps').innerHTML = S.maps.map((m) => {
+			let cls = 'mb', label = 'Disponible';
+			const can = S.phase === 'map' && !m.action;
+			if (m.action) {
+				cls += ' ' + m.action;
+				label = m.action === 'ban' ? `Ban ${tag(m.team)}` : m.action === 'pick' ? `Pick ${tag(m.team)}` : 'Decider';
+				if (m.action !== 'ban') label += m.side ? ` · ${tag(m.sideTeam)} en ${SIDE[m.side].toLowerCase()}` : ' · côté à choisir';
+			} else if (!can) cls += ' off';
+			if (can) cls += ' can';
+			if (choice && choice.map === m.name) cls += ' sel';
+			const c = m.action ? (m.team ? col(m.team) : 'var(--gold)') : 'var(--line)';
+			return `<button class="${cls}" data-map="${esc(m.name)}" ${can ? '' : 'tabindex="-1"'} style="--c:${esc(c)};${m.img ? `--img:url('${esc(m.img)}')` : ''}"><span class="nm">${esc(m.name)}</span><span class="st">${esc(label)}</span></button>`;
+		}).join('');
+
+		$('confirm').classList.toggle('hidden', !choice);
+		if (choice) {
+			const ok = $('ok');
+			ok.textContent = choice.type === 'map' ? `${t.action === 'ban' ? 'Bannir' : 'Jouer'} ${choice.map}` : `${SIDE[choice.side]} sur ${t.map}`;
+			ok.style.setProperty('--act', choice.type === 'map' && t.action === 'ban' ? 'var(--red)' : col(S.me));
+			ok.disabled = sending;
+		}
+
+		$('hist').innerHTML = S.history.map((h, i) => {
+			const who = h.action === 'decider' ? '' : tag(h.team);
+			const what = h.done ? esc(h.map) + (h.action !== 'ban' ? (h.side ? ` — ${esc(tag(h.sideTeam))} en ${SIDE[h.side].toLowerCase()}` : ' — côté à choisir') : '') : '…';
+			return `<div class="hs${h.done ? '' : ' todo'}${!h.done && i === S.index ? ' now' : ''}"><span class="i">${i + 1}</span><span class="a ${h.action}">${ACTION[h.action]}</span><span class="m">${what}</span><span class="t">${esc(who)}</span></div>`;
+		}).join('');
+	}
+	function set(k, v, h) { $('sk').textContent = k; $('sv').innerHTML = v; $('sh').textContent = h; }
+	const showErr = (text) => { $('err').textContent = text; $('err').classList.toggle('hidden', !text); };
+
+	$('maps').addEventListener('click', (e) => {
+		const b = e.target.closest('.mb.can');
+		if (!b) return;
+		choice = { type: 'map', map: b.dataset.map }; showErr(''); render();
+		$('confirm').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+	});
+	$('sides').addEventListener('click', (e) => {
+		const b = e.target.closest('button[data-side]');
+		if (b) { choice = { type: 'side', side: b.dataset.side }; showErr(''); render(); }
+	});
+	$('cancel').onclick = () => { choice = null; render(); };
+	$('ok').onclick = async () => {
+		if (!choice || sending) return;
+		sending = true; render();
+		try {
+			const r = await fetch(base + '/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...choice, index: S.index }) });
+			const j = await r.json().catch(() => ({}));
+			if (!r.ok || !j.ok) throw new Error(j.error || `Erreur ${r.status}`);
+			choice = null; showErr(''); refresh();
+		} catch (err) {
+			showErr(String(err.message || err));
+		} finally {
+			sending = false; render();
+		}
+	};
+
+	// État demandé chaque seconde (204 = rien de neuf) ; une coupure Wi-Fi ou un redémarrage de la régie se rattrape seul
+	let version = '', fails = 0;
+	const live = (on) => { $('live').classList.toggle('on', on); $('live').querySelector('span').textContent = on ? 'En direct' : 'Reconnexion…'; };
+	async function poll() {
+		try {
+			const r = await fetch(base + '/state?v=' + encodeURIComponent(version), { cache: 'no-store' });
+			if (r.status === 404) { $('main').classList.add('hidden'); $('dead').classList.remove('hidden'); live(false); return; }
+			if (r.status === 200) { S = await r.json(); version = S.version; render(); }
+			else if (r.status !== 204) throw new Error(r.status);
+			fails = 0; live(true);
+		} catch { if (++fails > 1) live(false); }
+		setTimeout(poll, document.hidden ? 3000 : 1000);
+	}
+	poll();
+	// Après une action : état rafraîchi tout de suite plutôt qu'à la prochaine seconde
+	const refresh = () => { version = ''; };
+</script>
+</body>
+</html>

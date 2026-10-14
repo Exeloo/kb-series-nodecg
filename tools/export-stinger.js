@@ -1,33 +1,34 @@
 // Export du stinger (graphics/transition.html) en séquence PNG transparente, image par image.
-// Usage : node tools/export-stinger.js [--map Ascent] [--fps 60] [--out exports/stinger-ascent] [--host http://localhost:9090]
+// Usage : node tools/export-stinger.js [--map Ascent | --replay] [--fps 60] [--out exports/stinger-ascent] [--host http://localhost:9090]
 //         [--settings '{"coverIn":600,"holdLogo":360,"holdMap":2500,"revealOut":540}']  (défaut : replicant mapsTransitionSettings)
 // Sortie : <out>/frame_0001.png … + info.txt. Le serveur NodeCG doit tourner.
+// Navigateur : Chrome, Edge ou Firefox (tools/browser.js) ; avec Firefox chaque image est capturée deux fois (plus lent).
 // Progression sur stdout : "PROGRESS i/n", puis "DONE <dossier>" (ou "ERROR <message>" + code 1).
 const path = require('path');
 const fs = require('fs');
-const { chromium } = require('playwright-core');
-const { findChrome } = require('./chrome');
-let sharp = null; try { sharp = require('sharp'); } catch (e) { /* optionnel : force le canal alpha sur toutes les images */ }
+const { launchBrowser, captureTransparent } = require('./browser');
 
 const args = process.argv.slice(2);
 const opt = (name, def) => { const i = args.indexOf('--' + name); return i >= 0 && args[i + 1] != null ? args[i + 1] : def; };
-const map = opt('map', '') || null;
+const replay = args.includes('--replay');
+const map = replay ? null : opt('map', '') || null;
+const kind = replay ? 'replay' : map ? 'map' : 'logo';
 const settings = opt('settings', '') ? JSON.parse(opt('settings')) : null;
 const fps = Math.max(1, +opt('fps', 60));
 const host = opt('host', 'http://localhost:9090');
 const root = path.resolve(__dirname, '..');
-const slug = map ? '-' + map.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '';
+const slug = replay ? '-replay' : map ? '-' + map.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '';
 const out = path.resolve(root, opt('out', `exports/stinger${slug}`));
 
 (async () => {
-	const browser = await chromium.launch({ executablePath: findChrome(), headless: true });
+	const { browser, engine } = await launchBrowser();
 	try {
 		const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
 		const errors = [];
 		page.on('pageerror', (e) => errors.push(e.message));
 		await page.goto(`${host}/bundles/valorant-tournament/graphics/transition.html?export=1`, { waitUntil: 'load' });
 		await page.waitForFunction(() => window.stingerExport, null, { timeout: 15000 });
-		const info = await page.evaluate(([m, st]) => window.stingerExport.prepare(m, st), [map, settings]);
+		const info = await page.evaluate(([m, st, k]) => window.stingerExport.prepare(m, st, k), [map, settings, kind]);
 
 		fs.rmSync(out, { recursive: true, force: true });
 		fs.mkdirSync(out, { recursive: true });
@@ -37,20 +38,19 @@ const out = path.resolve(root, opt('out', `exports/stinger${slug}`));
 			await page.evaluate((ms) => window.stingerExport.seek(ms), t);
 			await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 			const file = path.join(out, `frame_${String(i + 1).padStart(4, '0')}.png`);
-			const buf = await page.screenshot({ omitBackground: true });
-			// Chrome enregistre les images 100 % opaques en RGB : on force RGBA pour une séquence homogène
-			if (sharp) await sharp(buf).ensureAlpha().png({ compressionLevel: 6 }).toFile(file); else fs.writeFileSync(file, buf);
+			fs.writeFileSync(file, await captureTransparent(page, engine));
 			console.log(`PROGRESS ${i + 1}/${total}`);
 		}
 		const frameOf = (ms) => Math.round(ms * fps / 1000) + 1;
 		fs.writeFileSync(path.join(out, 'info.txt'), [
 			'KB SERIES — stinger (graphics/transition.html)',
-			`Map : ${map || 'aucune (logo seul)'}`,
+			replay ? 'Type : replay (titre « REPLAY »)' : `Map : ${map || 'aucune (logo seul)'}`,
 			'Format : PNG 1920x1080, fond transparent (alpha)',
+			`Navigateur : ${engine === 'firefox' ? 'Firefox' : 'Chrome / Edge'}`,
 			`Cadence : ${fps} images/s`,
 			`Nombre d'images : ${total} (frame_0001 → frame_${String(total).padStart(4, '0')})`,
 			`Durée : ${info.duration} ms`,
-			`Réglages : entrée ${info.coverIn} ms · tenue ${Math.round(info.hold / info.speed)} ms (${map ? 'holdMap' : 'holdLogo'}) · sortie ${info.revealOut} ms (vitesse ×${info.speed} incluse)`,
+			`Réglages : entrée ${info.coverIn} ms · tenue ${Math.round(info.hold / info.speed)} ms (${{ logo: 'holdLogo', map: 'holdMap', replay: 'holdReplay' }[kind]}) · sortie ${info.revealOut} ms (vitesse ×${info.speed} incluse)`,
 			info.s ? `Style : direction ${info.s.direction} · angle ${info.s.angle}° · easing ${info.s.easing} · ${info.s.panels} volets · décalage ${info.s.stagger} ms · palette ${info.s.palette} · logo ${info.s.logoAnim}` : '',
 			`Écran totalement couvert : ${info.coveredFrom} → ${info.coveredTo} ms (images ${frameOf(info.coveredFrom)} → ${frameOf(info.coveredTo)}, soit ${info.coveredMs} ms)`,
 			`Point de coupe conseillé : ${info.cut} ms (image ${frameOf(info.cut)})`,

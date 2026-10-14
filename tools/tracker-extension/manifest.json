@@ -2,27 +2,40 @@
 	"manifest_version": 3,
 	"name": "KB SERIES · Import tracker.gg → NodeCG",
 	"short_name": "KB Import",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Importe en un clic les stats tracker.gg d'un joueur Valorant dans la régie NodeCG (KB SERIES).",
-	"minimum_chrome_version": "116",
+	"minimum_chrome_version": "121",
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "kb-tracker-import@kb-series",
+			"strict_min_version": "140.0",
+			"data_collection_permissions": {
+				"required": [
+					"none"
+				]
+			}
+		},
+		"gecko_android": {
+			"strict_min_version": "142.0"
+		}
+	},
 	"permissions": [
 		"scripting",
 		"storage"
 	],
 	"host_permissions": [
 		"https://tracker.gg/*",
-		"https://api.tracker.gg/*",
-		"http://*:9090/*",
-		"https://*:9090/*"
+		"https://api.tracker.gg/*"
 	],
 	"background": {
-		"service_worker": "background.js"
+		"service_worker": "background.js",
+		"scripts": [
+			"background.js"
+		]
 	},
 	"content_scripts": [
 		{
 			"matches": [
-				"http://*:9090/*",
-				"https://*:9090/*",
 				"*://*/bundles/valorant-tournament/*"
 			],
 			"js": [

@@ -19,11 +19,17 @@
 		li b { font-weight: 600; } li .ok { color: var(--ok); } li .err { color: var(--red); } li small { color: var(--muted); display: block; }
 		button { width: 100%; margin-top: 10px; background: var(--blue); border: 1px solid var(--blue); color: #fff; border-radius: 4px; padding: 8px; font: 600 13px 'Segoe UI', sans-serif; cursor: pointer; }
 		.empty { color: var(--muted); font-style: italic; font-size: 12px; }
+		.warn { border-color: var(--gold); } .warn button { background: var(--gold); border-color: var(--gold); color: #0a0f2e; margin-top: 8px; }
+		.hidden { display: none; }
 	</style>
 </head>
 <body>
 	<h1>KB SERIES · Import tracker.gg</h1>
 	<div class="sub" id="ver"></div>
+	<div class="card warn hidden" id="perm">
+		<div class="status"><span class="dot err"></span><span>Accès aux sites non autorisé : l'extension ne peut ni lire tracker.gg ni parler à la régie.</span></div>
+		<button id="permBtn">Autoriser l'accès (tracker.gg et régie)</button>
+	</div>
 	<div class="card">
 		<div class="status"><span class="dot" id="ncgDot"></span><span id="ncg">Régie NodeCG…</span></div>
 		<div class="status" style="margin-top:6px"><span class="dot" id="qDot"></span><span id="queue">Aucun import en cours</span></div>

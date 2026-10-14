@@ -44,21 +44,21 @@ La scène **50/50 caméras** (Régie) affiche un habillage percé de deux trous 
 | Gauche | 40 | 40 | 900 × 860 |
 | Droite | 980 | 40 | 900 × 860 |
 
-Les trous ont deux coins coupés (haut-gauche et bas-droit). Recadre chaque caméra dans OBS pour qu'elle remplisse son trou. Ces coordonnées sont aussi affichées dans le panneau **Live** → **Écran 50/50 (dual-cam)**.
+Les trous ont deux coins coupés (haut-gauche et bas-droit). Recadre chaque caméra dans OBS pour qu'elle remplisse son trou. Ces coordonnées sont aussi affichées dans le panneau **Écran 50/50 (dual-cam)**.
 
 ## La transition (stinger)
 Avec `stream.html`, la transition est déjà dans la page : le bouton **▶ LANCER LA TRANSITION** de la Régie la joue et fait le changement demandé (**2. Vers**) au moment où l'écran est entièrement couvert. Rien à faire dans OBS.
 
 Pour utiliser plutôt la transition « Stinger » d'OBS (ou dans un logiciel de montage), exporte-la en images PNG :
 1. Régie lancée, panneau **Maps & Transitions** → carte **Exporter en séquence PNG**.
-2. **Exporter (logo)** ou **Exporter + map choisie** (la map choisie dans le menu sous l'aperçu). Une barre montre la progression.
-3. Résultat dans le dossier `exports/` du projet : `exports/stinger/` (logo seul) ou `exports/stinger-<map>/` (ex. `exports/stinger-ascent/`), images `frame_0001.png`, `frame_0002.png`… en 1920×1080, 60 images/s, fond transparent.
+2. **Exporter (logo)**, **Exporter + map choisie** (la map choisie dans le menu sous l'aperçu) ou **Exporter (replay)**. Une barre montre la progression.
+3. Résultat dans le dossier `exports/` du projet : `exports/stinger/` (logo seul), `exports/stinger-<map>/` (ex. `exports/stinger-ascent/`) ou `exports/stinger-replay/`, images `frame_0001.png`, `frame_0002.png`… en 1920×1080, 60 images/s, fond transparent.
 4. Le fichier `info.txt` du dossier donne la durée, le **point de coupe conseillé** (en millisecondes et en numéro d'image) et deux commandes `ffmpeg` pour assembler les images en vidéo avec transparence (OBS a besoin d'une vidéo pour un stinger).
 5. Dans OBS, crée une transition Stinger avec cette vidéo et règle son point de transition sur la valeur d'`info.txt`.
 
 Attention : un nouvel export **remplace** le dossier du même nom. Renomme un dossier pour le garder.
-Même chose en ligne de commande, serveur lancé : `npm run export:stinger` (logo) ou `npm run export:stinger -- --map Ascent`.
-L'export a besoin de Chrome (ou Edge) sur le PC : il ne fonctionne que sur la régie locale, pas sur une régie en ligne.
+Même chose en ligne de commande, serveur lancé : `npm run export:stinger` (logo), `npm run export:stinger -- --map Ascent` ou `npm run export:stinger -- --replay`.
+L'export a besoin de Chrome, Edge ou Firefox sur le PC (peu importe le navigateur où la régie est ouverte) : il ne fonctionne que sur la régie locale, pas sur une régie en ligne.
 
 ## Régie protégée par un mot de passe
 Quand la régie a un mot de passe (`start-reseau.bat` avec mot de passe, ou régie en ligne), OBS ne peut pas se connecter avec un identifiant : il utilise la **clé** de la régie.
