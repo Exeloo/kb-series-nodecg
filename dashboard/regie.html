@@ -5,7 +5,7 @@
 	<title>Régie</title>
 	<!--
 		Régie : tableau de bord du direct (transition, scène de fond, AFFICHER / masquer chaque overlay, plateau host / casters, lower thirds rapides).
-		Écrit : streamScene, transition, les booléens « visible » des overlays (via KBO), liveLowerThird (via KBLT).
+		Écrit : streamScene, transition, les booléens « visible » des overlays (via KBO), liveLowerThird (via KBLT), fullscreenStinger (via KBO).
 		N'envoie aucun message : rien ici ne touche aux données (elles sont dans le panneau « Données »).
 	-->
 	<link rel="stylesheet" href="../shared/dashboard.css">
@@ -61,6 +61,11 @@
 		<select id="trDest"></select>
 		<button type="button" class="gold tr-go" id="trGo">▶ LANCER LA TRANSITION</button>
 		<div class="hint" id="trInfo"></div>
+		<label>Ralenti : transition replay + bug « REPLAY » (en haut à droite)</label>
+		<div class="grid2">
+			<button type="button" id="replayIn" title="Transition replay, puis le bug REPLAY apparaît pendant que l'écran est couvert">▶ Replay + bug</button>
+			<button type="button" id="replayOut" title="Le bug REPLAY disparaît d'abord, puis la transition replay est jouée">■ Fin du replay</button>
+		</div>
 		<div class="msg" id="trMsg"></div>
 	</div>
 
@@ -69,7 +74,7 @@
 	<div class="hint">Masque tous les overlays et repasse sur le jeu. Les données ne sont pas touchées.</div>
 	<label>Scène de fond (page stream.html)</label>
 	<div class="grid3" id="scenes"></div>
-	<div class="hint">Une scène autre que « Jeu » masque d'abord les overlays plein écran (ils passeraient devant).</div>
+	<div class="hint">Chaque scène masque d'abord les overlays plein écran (ils passeraient devant ; « Jeu » = retour au jeu sans eux).</div>
 	<div class="row">
 		<label class="chk" for="via">Passage :</label>
 		<select id="via">
@@ -81,6 +86,8 @@
 	<h3>Overlays</h3>
 	<div id="groups"></div>
 	<label class="chk"><input type="checkbox" id="exclusive"> Un seul plein écran à la fois (masque les autres automatiquement)</label>
+	<label class="chk"><input type="checkbox" id="fsStinger"> Transition (stinger) pour entrer, sortir et passer d'un plein écran à l'autre</label>
+	<div class="hint">Réglage commun à toute la régie et à Companion. Le changement se fait quand le stinger couvre l'écran (environ 1 s après le clic).</div>
 	<div class="hint">Les réglages détaillés (textes, joueurs, MVP…) sont dans leurs panneaux : onglets « 1. Match & Joueurs » et « 2. Écrans & Tournoi ».</div>
 
 	<h3>Plateau : host et casters</h3>
@@ -100,16 +107,14 @@
 	<script src="../shared/live.js"></script>
 	<script src="../shared/maps.js"></script>
 	<script src="../shared/dash.js"></script>
+	<script src="../shared/overlay-list.js"></script>
 	<script src="../shared/overlays.js"></script>
 	<script src="../shared/lt-form.js"></script>
 	<script>
 		const $ = (s) => document.querySelector(s);
 		const streamScene = nodecg.Replicant('streamScene', { defaultValue: KBDefaults.streamScene() });
 		const trSettings = KBM.trRep();
-		const SCENES = [
-			['none', 'Jeu (aucune)'], ['starting', 'Bientôt'], ['brb', 'Pause'],
-			['ending', 'Fin'], ['schedule', 'Planning'], ['dual-cam', '50/50 caméras'],
-		];
+		const SCENES = KBOList.SCENES;
 		const FULL = KBO.ITEMS.filter((it) => it.fullscreen);
 
 		// ---------- Overlays : lignes construites une fois, état mis à jour en place (aucun clic perdu) ----------
@@ -136,20 +141,23 @@
 
 		$('#exclusive').checked = KBO.exclusive;
 		$('#exclusive').onchange = (e) => { KBO.exclusive = e.target.checked; };
+		$('#fsStinger').onchange = (e) => { KBO.stinger = e.target.checked; };
 
 		// ---------- Scène de fond (graphics/stream.html) : affichée SOUS les overlays ----------
 		$('#scenes').innerHTML = SCENES.map(([id, l]) => `<button type="button" data-scene="${id}">${l}</button>`).join('');
 		try { $('#via').value = localStorage.getItem('kb-regie-via') === 'cut' ? 'cut' : 'fade'; } catch {}
 		$('#via').onchange = (e) => { try { localStorage.setItem('kb-regie-via', e.target.value); } catch {} };
-		// Une scène de fond resterait cachée derrière un plein écran : on les masque d'abord
+		// Les plein écran sont masqués d'abord : ils cacheraient la scène de fond, et « Jeu » veut dire retour au jeu, sans eux
 		const setScene = (scene, via) => {
-			if (scene !== 'none') KBO.hideAll({ fullscreenOnly: true });
+			KBO.hideAll({ fullscreenOnly: true });
 			streamScene.value = { scene, via, at: Date.now() };
 		};
 		$('#scenes').onclick = (e) => {
 			const id = e.target.dataset.scene;
-			if (!id || id === (streamScene.value || {}).scene) return;
-			setScene(id, $('#via').value);
+			if (!id) return;
+			// Scène déjà affichée : pas rejouée, mais les plein écran sont quand même masqués
+			if (id === (streamScene.value || {}).scene) KBO.hideAll({ fullscreenOnly: true });
+			else setScene(id, $('#via').value);
 		};
 		function renderScenes() {
 			const cur = (streamScene.value || {}).scene || 'none';
@@ -172,6 +180,8 @@
 				trBusy = null;
 				KBD.flash('trMsg', 'Action de la transition annulée (Tout masquer).', 'info', 4000);
 			}
+			// Idem pour un plein écran en attente de sa transition (option « Transition… plein écran », gérée par le serveur)
+			nodecg.sendMessage('transition:cancel').catch(() => {});
 			clearScreen();
 		};
 
@@ -211,16 +221,15 @@
 		function applyDest(d) {
 			if (d === 'clear') return clearScreen();
 			if (d.startsWith('scene:')) return setScene(d.slice(6), 'cut');
-			if (d.startsWith('ov:')) KBO.show(d.slice(3), { exclusive: true });
+			// Déjà pendant une transition : pas de second stinger
+			if (d.startsWith('ov:')) KBO.show(d.slice(3), { exclusive: true, stinger: false });
+			if (d.startsWith('hide:')) KBO.hide(d.slice(5), { stinger: false });
 		}
 		let trBusy = null;
-		$('#trGo').onclick = () => {
-			const map = trType === 'map' ? $('#trMapSel').value || null : null;
-			const d = $('#trDest').value || 'none';
-			const kind = trType === 'replay' ? 'replay' : map ? 'map' : 'logo';
+		/** Lance le stinger ; d = action faite écran couvert (none, clear, scene:…, ov:…, hide:…) ; label = libellé de cette action */
+		function launch(kind, map, d, label) {
 			const t = KBM.stingerTiming(KBM.trSettings(trSettings.value), kind);
 			KB.rep.transition.value = { at: Date.now(), map, kind };
-			const label = $('#trDest').selectedOptions[0] ? $('#trDest').selectedOptions[0].textContent : '';
 			KBD.flash('trMsg', `Transition ${kind === 'replay' ? 'replay' : map ? '+ ' + map : 'logo'} lancée${d !== 'none' ? ' → ' + label : ''}`, 'ok', 0);
 			clearTimeout(trBusy);
 			trBusy = null;
@@ -228,11 +237,34 @@
 			// demandée dès le début de la couverture (stream.html garde l'ancienne affichée tant que la nouvelle charge)
 			const at = d.startsWith('scene:') && t.covered ? t.coveredFrom : t.cut;
 			if (d !== 'none') trBusy = setTimeout(() => { trBusy = null; applyDest(d); }, at);
+		}
+		$('#trGo').onclick = () => {
+			const map = trType === 'map' ? $('#trMapSel').value || null : null;
+			const d = $('#trDest').value || 'none';
+			const kind = trType === 'replay' ? 'replay' : map ? 'map' : 'logo';
+			launch(kind, map, d, $('#trDest').selectedOptions[0] ? $('#trDest').selectedOptions[0].textContent : '');
+		};
+		// Ralenti en un clic (mêmes actions que l'API Companion : /replay/start et /replay/end)
+		$('#replayIn').onclick = () => launch('replay', null, 'ov:replay-bug', 'bug Replay affiché');
+		// Fin : le bug sort AVANT le stinger (sinon sa sortie se verrait une fois l'écran découvert) ; même logique que /replay/end
+		$('#replayOut').onclick = () => {
+			clearTimeout(trBusy);
+			trBusy = null;
+			if (!KBO.isVisible('replay-bug')) return launch('replay', null, 'none', '');
+			KBO.hide('replay-bug');
+			KBD.flash('trMsg', 'Bug Replay masqué, transition replay dans un instant…', 'info', 0);
+			// trBusy : « Tout masquer » annule aussi cette transition en attente
+			trBusy = setTimeout(() => { trBusy = null; launch('replay', null, 'none', ''); }, LIVE.REPLAY_BUG_OUT_MS);
 		};
 
 		// ---------- Rendu : overlays, match en cours, transition ----------
 		function render() {
 			if (!$('#groups').children.length) buildRows();
+			$('#fsStinger').checked = KBO.stinger;
+			// Bug Replay à l'antenne : « Replay + bug » marqué, « Fin du replay » mis en avant
+			const bugOn = KBO.isVisible('replay-bug');
+			$('#replayIn').classList.toggle('onair', bugOn);
+			$('#replayOut').classList.toggle('gold', bugOn);
 			$('#groups').querySelectorAll('[data-ovrow]').forEach(updateRow);
 			const m = KB.rep.match.value || {};
 			const A = KB.team(m.teamA), B = KB.team(m.teamB);
@@ -251,7 +283,7 @@
 		// ---------- URLs OBS ----------
 		const GRAPHICS = [
 			['stream', '★ STREAM — toutes les couches (la seule à mettre dans OBS)'], ['starting', 'Le stream commence bientôt'], ['brb', 'Pause'], ['ending', 'Fin de stream'], ['schedule', 'Planning'],
-			['transition', 'Transition (tout en haut)'], ['lower-third', 'Lower thirds'], ['ticker', 'Ticker'],
+			['transition', 'Transition (tout en haut)'], ['lower-third', 'Lower thirds'], ['ticker', 'Ticker'], ['replay-bug', 'Bug Replay (haut droite)'],
 			['dual-cam', '50/50 caméras'], ['versus', 'Versus'], ['veto', 'Veto'], ['veto-recap', 'Récap du veto'], ['map-intro', 'Intro de map'], ['map-series', 'Maps de la série'],
 			['map-result', 'Résultat de map'], ['player-stats', 'Stats joueur'], ['player-duel', 'Duel'], ['groups', 'Groupes'], ['bracket', 'Bracket'],
 		];

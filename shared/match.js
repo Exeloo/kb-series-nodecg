@@ -79,6 +79,21 @@
 		return other(prev && prev.team) || 'A';
 	}
 
+	// ---------- Veto → maps de la série (match.maps) ----------
+	const vetoPicks = (steps) => (steps || []).filter((s) => s && (s.action === 'pick' || s.action === 'decider') && s.map);
+	/** Signature des maps jouées d'un veto (map, action, équipe) : change seulement si la liste des maps de la série change */
+	const vetoPicksKey = (steps) => JSON.stringify(vetoPicks(steps).map((s) => [s.map, s.action, s.team]));
+	/**
+	 * match.maps tirées des picks et du decider d'un veto, dans l'ordre du veto. Une map déjà présente dans oldMaps garde
+	 * son score, son vainqueur, son statut et ses agents joués (seul pickedBy est mis à jour) ; une nouvelle map est « à venir ».
+	 */
+	function mapsFromVeto(steps, oldMaps) {
+		return vetoPicks(steps).map((s) => {
+			const pickedBy = s.action === 'decider' ? 'decider' : s.team;
+			const prev = (oldMaps || []).find((o) => o && o.map === s.map);
+			return prev ? { ...prev, pickedBy } : { map: s.map, pickedBy, scoreA: 0, scoreB: 0, winner: null, status: 'upcoming' };
+		});
+	}
 
 	// Replicants de la partie (navigateur), déclarés une seule fois avec leur valeur par défaut
 	const clone = (v) => JSON.parse(JSON.stringify(v));
@@ -89,7 +104,7 @@
 	/** Replicant matchVeto (déroulé prévu du veto : { format, sequence }) */
 	const vetoPlan = () => declare('matchVeto');
 
-	const api = { gfx, vetoPlan, VETO_PRESETS, FORMATS, buildSequence, minMaps, sameSequence, MATCH_DEFAULTS, STAGES, ACTION_FR, SIDE_FR, needsSide, vetoState, other, defaultSideTeam };
+	const api = { gfx, vetoPlan, VETO_PRESETS, FORMATS, buildSequence, minMaps, sameSequence, MATCH_DEFAULTS, STAGES, ACTION_FR, SIDE_FR, needsSide, vetoState, other, defaultSideTeam, vetoPicks, vetoPicksKey, mapsFromVeto };
 	if (typeof module !== 'undefined' && module.exports) module.exports = api;
 	else root.KBMatch = api;
 })(typeof window !== 'undefined' ? window : globalThis);

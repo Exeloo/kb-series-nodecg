@@ -30,6 +30,7 @@
 <script src="../shared/kb.js"></script>
 <script src="../shared/live.js"></script>
 <script src="../shared/dash.js"></script>
+<script src="../shared/overlay-list.js"></script>
 <script src="../shared/overlays.js"></script>
 <script>
 	const D = LIVE.defaults;
@@ -43,7 +44,7 @@
 
 
 	// ---------- Ticker : visibilité immédiate (KBO), messages / vitesse / partenaires à enregistrer ----------
-	KBO.bind('tkRow');
+	KBO.bind('#tkRow');
 	const tkLines = () => $('tkMsgs').value.split('\n').map((s) => s.trim()).filter(Boolean);
 	const tkSpeed = (v) => Math.min(400, Math.max(20, +v || D.liveTicker.speed));
 	const tkForm = KBD.bindDirty('tkForm', {

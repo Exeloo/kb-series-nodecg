@@ -6,7 +6,7 @@ const globals = require('globals');
 
 // API injectée par NodeCG + objets exposés par shared/*.js
 const kb = Object.fromEntries(
-	['nodecg', 'NodeCG', 'KB', 'KBD', 'KBO', 'KBI', 'KBM', 'KBP', 'KBB', 'KBMatch', 'KBScenes', 'KBDefaults', 'KBLT', 'LIVE'].map((n) => [n, 'readonly']),
+	['nodecg', 'NodeCG', 'KB', 'KBD', 'KBO', 'KBI', 'KBM', 'KBP', 'KBB', 'KBMatch', 'KBScenes', 'KBDefaults', 'KBLT', 'LIVE', 'KBOList'].map((n) => [n, 'readonly']),
 );
 
 module.exports = [

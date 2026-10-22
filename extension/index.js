@@ -8,6 +8,7 @@ module.exports = function (nodecg) {
 	const listen = createListen(nodecg);
 	const backup = createBackup(nodecg);
 	let tracker = null;
+	let live = null;
 	const parts = [
 		['state', () => require('./state')(nodecg, listen)],             // replicants coeur + données Valorant
 		['tracker', () => { tracker = require('./tracker')(nodecg); }],   // profils tracker.gg (normalisation, stockage)
@@ -15,7 +16,7 @@ module.exports = function (nodecg) {
 		['player', () => require('./player')(nodecg)],
 		['maps', () => require('./maps')(nodecg, listen)],
 		['scenes', () => require('./scenes')(nodecg)],
-		['live', () => require('./live')(nodecg, listen)],
+		['live', () => { live = require('./live')(nodecg, listen); }],
 		['match', () => require('./match')(nodecg)],
 		['veto-teams', () => require('./veto-teams')(nodecg, listen)],   // pages de veto envoyées aux équipes
 		['bracket', () => require('./bracket')(nodecg, listen, backup)],
@@ -23,6 +24,7 @@ module.exports = function (nodecg) {
 		['test-data', () => require('./test-data')(nodecg, listen, backup)],
 		['data-transfer', () => require('./data-transfer')(nodecg, listen, backup)],
 		['dev-reload', () => require('./dev-reload')(nodecg)],
+		['companion', () => require('./companion')(nodecg, listen, live)],   // API HTTP pour Bitfocus Companion (en dernier : replicants déjà déclarés)
 	];
 	for (const [name, load] of parts) {
 		try {

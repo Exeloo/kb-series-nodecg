@@ -169,11 +169,8 @@
 			const order = steps.filter((s) => s.action !== 'ban' && s.map);
 			const n = order.length;
 			const w = Math.min(600, Math.floor((1780 - 28 * (n - 1)) / Math.max(n, 1)));
-			const keys = order.map((s) => {
-				const mm = mapEntry(match, s.map) || {};
-				return JSON.stringify([s.map, s.action, s.team, s.side, s.sideTeam, mm.status, mm.scoreA, mm.scoreB, mm.winner, !!match.swap,
-					teamOf(s.team) && teamOf(s.team).name, teamOf('A') && teamOf('A').logo, teamOf('B') && teamOf('B').logo]);
-			});
+			// Clé d'une carte = son HTML complet : tout ce qu'elle affiche (équipe, tag, couleur, logo, côtés, score, image) la remet à jour
+			const keys = order.map((s, i) => cardHtml(s, i, steps, w));
 			const box = KB.$('#cards');
 			const layout = order.map((s) => s.map).join('|') + '/' + w;
 			if (entering || layout !== built) {
@@ -184,7 +181,7 @@
 			} else {
 				keys.forEach((k, i) => {
 					if (k === prevKeys[i]) return;
-					const tmp = document.createElement('div'); tmp.innerHTML = cardHtml(order[i], i, steps, w);
+					const tmp = document.createElement('div'); tmp.innerHTML = k;
 					const el = tmp.firstElementChild; el.style.animation = 'none'; el.style.opacity = 1;
 					el.firstElementChild.classList.add('changed');
 					el.querySelector('.img').style.animation = 'img-drift 18s ease-in-out infinite alternate';

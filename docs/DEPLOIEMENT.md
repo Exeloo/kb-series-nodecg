@@ -16,6 +16,7 @@ et les logos. NodeCG ne peut donc pas y tourner. Il faut un hébergeur qui garde
 | `NODECG_USER` | Non | Identifiant de connexion (défaut : `regie`). |
 | `NODECG_BASE_URL` | Oui avec `docker-compose.yml` | Ton domaine sans `https://`, ex. `regie.tondomaine.fr`. |
 | `NODECG_SESSION_SECRET` | Non | Longue chaîne aléatoire qui signe les connexions. Si absente, un secret est créé une fois dans le volume (`/data/db/session-secret`) et réutilisé. |
+| `COMPANION_TOKEN` | Non | Jeton de l'API Bitfocus Companion (au moins 16 caractères aléatoires). Si absent, un jeton est créé dans le volume (`/data/db/companion-token`), visible dans le panneau Données. Voir [COMPANION.md](COMPANION.md). |
 | `NODECG_HOST` | Non | Adresse d'écoute. L'image Docker la règle déjà sur `0.0.0.0` : n'y touche pas. |
 | `PORT` | Non | Port d'écoute (défaut 9090). Railway le fournit tout seul. |
 

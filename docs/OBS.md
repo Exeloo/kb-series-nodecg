@@ -41,10 +41,10 @@ La scène **50/50 caméras** (Régie) affiche un habillage percé de deux trous 
 
 | Trou | Position x | Position y | Taille |
 |---|---|---|---|
-| Gauche | 40 | 40 | 900 × 860 |
-| Droite | 980 | 40 | 900 × 860 |
+| Gauche | 40 | 220 | 896 × 504 |
+| Droite | 984 | 220 | 896 × 504 |
 
-Les trous ont deux coins coupés (haut-gauche et bas-droit). Recadre chaque caméra dans OBS pour qu'elle remplisse son trou. Ces coordonnées sont aussi affichées dans le panneau **Écran 50/50 (dual-cam)**.
+Les trous sont au format **16:9**, comme une caméra : redimensionne chaque source à 896 × 504 (clic droit → **Transformer** → **Modifier la transformation**, ou 46,67 % d'une caméra 1080p), sans recadrage. Ils ont deux coins coupés (haut-gauche et bas-droit) qui masquent un petit triangle de l'image. Ces coordonnées sont aussi affichées dans le panneau **Écran 50/50 (dual-cam)**.
 
 ## La transition (stinger)
 Avec `stream.html`, la transition est déjà dans la page : le bouton **▶ LANCER LA TRANSITION** de la Régie la joue et fait le changement demandé (**2. Vers**) au moment où l'écran est entièrement couvert. Rien à faire dans OBS.

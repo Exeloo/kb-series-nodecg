@@ -12,6 +12,7 @@ Pour un développeur ou un agent IA qui reprend le code : principe, arborescence
 ```
 cfg/nodecg.js            configuration NodeCG lue au démarrage (port, hôte, connexion) ; tout vient des variables d'environnement
 dashboard/               panneaux de régie (déclarés dans package.json → nodecg.dashboardPanels)
+  companion.html          onglet « Companion » (fullbleed) : boutons Companion à copier, constructeur et test des routes, référence de l'API (suit docs/COMPANION.md)
   players.html + players/  panneau « Équipes & Joueurs » découpé : data.js (écritures), board.js, sheet.js, preview.js, main.js, players.css
 graphics/                overlays 1920×1080 (package.json → nodecg.graphics) ; stream.html les empile tous
 extension/               serveur du bundle
@@ -24,6 +25,7 @@ extension/               serveur du bundle
   tracker.js             normalisation d'un JSON tracker.gg → profil (playerProfiles), JSON brut dans db/tracker/
   tracker-routes.js      routes HTTP de l'import tracker.gg (+ static/ : tracker-receiver.html, tracker-guide.html)
   veto-teams.js          liens de veto envoyés aux équipes : routes HTTP, contrôle des tours (+ static/veto-team.html)
+  companion.js           API HTTP à jeton pour Bitfocus Companion (docs/COMPANION.md)
   live.js maps.js match.js player.js bracket.js scenes.js   replicants et logique de chaque partie
   data-admin.js          réinitialisation par catégories, liste et restauration des sauvegardes
   data-transfer.js       export / import d'un fichier complet (données + assets en base64)
@@ -35,7 +37,7 @@ docs/                    documentation
 start.bat, start-reseau.bat   lanceurs Windows (ASCII, CRLF)
 Dockerfile, docker-compose.yml, .env.example, .railwayignore, .dockerignore   mise en ligne (docs/DEPLOIEMENT.md)
 ```
-Hors git : `db/` (base `nodecg.sqlite3`, `backups/`, `tracker/`, `session-secret`), `assets/`, `exports/`, `shots/`, `Medias/`, `logs/`, `node_modules/`.
+Hors git : `db/` (base `nodecg.sqlite3`, `backups/`, `tracker/`, `session-secret`, `companion-token`), `assets/`, `exports/`, `shots/`, `Medias/`, `logs/`, `node_modules/`.
 
 ## Flux de données
 
@@ -46,28 +48,30 @@ Les replicants sont persistés par NodeCG dans `db/` (sauf mention). « Défaut 
 |---|---|---|---|---|---|
 | `tournament` | Nom, édition, dates, lieu, hashtag | `state.js` | Écrans | starting, brb, ending, schedule, map-intro, player-stats, bracket | `shared/defaults.js` |
 | `teams` | `{ [id]: { id, name, tag, logo, color, players: [{ riotId, role }] } }` | `state.js`, `test-data.js` | Équipes & Joueurs | presque tous | `shared/defaults.js` |
-| `match` | Phase, format, équipes A/B, `swap`, `currentMap`, `maps[]` (scores, vainqueur, statut, `picks`) | `state.js`, `live.js` (`live:series`), `test-data.js` | Match, Live, Équipes & Joueurs (renommage) | versus, veto, maps, joueurs, brb, starting, dual-cam, transition | `shared/defaults.js` |
+| `match` | Phase, format, équipes A/B, `swap`, `currentMap`, `maps[]` (scores, vainqueur, statut, `picks`) | `state.js`, `live.js` (`live:series`), `match.js` (`maps` recalculées quand les picks du veto changent — `KBMatch.mapsFromVeto`), `test-data.js` | Match, Live, Équipes & Joueurs (renommage) | versus, veto, maps, joueurs, brb, starting, dual-cam, transition | `shared/defaults.js` |
 | `veto` | Pool + étapes jouées | `state.js`, `test-data.js` | Veto des maps | veto, veto-recap, map-intro | `shared/defaults.js` |
 | `matchVeto` | Déroulé prévu du veto : `{ format, first, custom, sequence }`. `format` suit `match.format` (dans les deux sens) ; sans `custom`, `sequence` est recalculée (`KBMatch.buildSequence`) quand `format`, `first` ou la taille de `veto.pool` change | `match.js` | Veto des maps | veto | `shared/match.js` (`MATCH_DEFAULTS`) |
 | `vetoTeams` | `{ open, tokens: { A, B } }` : pages équipes actives ou en pause, jetons des liens | `veto-teams.js` | Veto des maps | — | `extension/veto-teams.js` |
 | `vetoTeamsInfo` | Non persisté : `{ urls, lan, online: { A, B } }` (adresses réseau du serveur, pages équipes ouvertes) | `veto-teams.js` | Veto des maps | — | `extension/veto-teams.js` |
 | `matchGraphics` | Visibilité versus / veto / vetoRecap | `match.js` (complète une ancienne valeur) | via `KBO` | versus, veto, veto-recap | `shared/match.js` |
 | `playerData` | Fiches saisies à la main (priment), clé = riotId en minuscules | `state.js` (migre l'ancien `playerPhotos`) | Équipes & Joueurs | via `KB.player` | `shared/defaults.js` |
-| `playerProfiles` | Profils tracker.gg normalisés | `tracker.js` (route d'import) | Équipes & Joueurs, Stats Joueur (suppression) | via `KB.player` | `shared/defaults.js` |
+| `playerProfiles` | Profils tracker.gg normalisés (dont `roles` : stats par rôle, plus joué d'abord). Un profil sans `roles` (import ancien) est re-normalisé au démarrage depuis son JSON brut de `db/tracker/` | `tracker.js` (route d'import, démarrage) | Équipes & Joueurs, Stats Joueur (suppression) | via `KB.player` | `shared/defaults.js` |
 | `casters` | Intervenants `[{ name, handle, role }]`, `role` : `caster` \| `host` (absent = caster) | `state.js` | Lower thirds, Régie | lower-third (source « caster ») | `shared/defaults.js` |
 | `schedule` | Planning du jour | `state.js`, `test-data.js` | Écrans | schedule, starting, brb, ending | `shared/defaults.js` |
 | `countdown` | `{ endsAt, label }` | `state.js`, `test-data.js` | Écrans | starting, brb | `shared/defaults.js` |
 | `streamScene` | Scène de fond de `stream.html` + mode de passage | `state.js`, `lib/backup.js` (remise sur « none ») | Régie | stream | `shared/defaults.js` |
-| `transition` | Déclencheur du stinger `{ at, map, kind }` (`kind` : `logo` \| `map` \| `replay`, absent = déduit de `map` — `KBM.trKind`) | `state.js` | Régie, Maps & Transitions | transition | `shared/defaults.js` |
+| `transition` | Déclencheur du stinger `{ at, map, kind, style? }` (`kind` : `logo` \| `map` \| `replay`, absent = déduit de `map` — `KBM.trKind` ; `style` : préréglage joué pour cette fois, `KBM.trStyle`, API Companion) | `state.js` | Régie, Maps & Transitions, API Companion | transition | `shared/defaults.js` |
 | `valorantData` | Cache maps / agents de valorant-api.com | `state.js` | — | presque tous | `shared/defaults.js` |
 | `liveLowerThird` | `{ left, center, right }` : contenu + visibilité ; masquage auto après `duration` (`hideAt` : heure prévue, posée par le serveur) ; `center` ajouté au démarrage s'il manque | `live.js` | Régie, Lower thirds (`KBLT`, `KBO`) | lower-third | `shared/live.js` (`LIVE.defaults`) |
 | `liveLowerThirdPresets` | Presets de lower third | `live.js` | Lower thirds, Régie (`KBLT`) | — | `shared/live.js` |
 | `liveTicker` | Visibilité, messages, vitesse, partenaires | `live.js` | Ticker, Régie | ticker | `shared/live.js` |
 | `liveDualCam` | Étiquettes et bandeau de l'écran 50/50 | `live.js` | Écran 50/50 | dual-cam | `shared/live.js` |
+| `fullscreenStinger` | `{ enabled }` : afficher / masquer un plein écran passe par le stinger (changement au point de coupe, minuteur côté serveur) | `companion.js` | Régie (case, via `KBO.stinger`), API | — | `shared/overlay-list.js` (`KBOList.STINGER_DEFAULT`) |
+| `liveReplayBug` | `{ visible }` : bug « REPLAY » en haut à droite | `live.js` | Régie (via `KBO`) | replay-bug | `shared/live.js` (`LIVE.defaults`) |
 | `mapsGraphics` | Visibilité + map / MVP de intro, series, result | `maps.js` | Maps & Transitions, Régie, Équipes & Joueurs (renommage) | map-intro, map-series, map-result | `shared/maps.js` (`KBM.DEFAULT`) |
 | `mapsTransitionSettings` | Réglages du stinger + préréglages perso | `maps.js` | Maps & Transitions | transition | `shared/maps.js` (`KBM.TRANSITION_DEFAULT`) |
 | `mapsExport` | État de l'export PNG | `maps.js` | — | — (lu par Maps & Transitions) | `extension/maps.js` |
-| `playerStatsGraphic` | `{ playerId, visible, agentId }` | `player.js` | Stats Joueur, Régie | player-stats | `shared/player.js` (`KBP.STATS_DEFAULT`) |
+| `playerStatsGraphic` | `{ playerId, visible, agentId, view }` (`view` : `overview` \| `roles`, absent = `overview` — `KBP.view`) | `player.js` | Stats Joueur, Régie | player-stats | `shared/player.js` (`KBP.STATS_DEFAULT`) |
 | `playerDuel` | `{ left, right, visible }` | `player.js` | Stats Joueur, Régie | player-duel | `shared/player.js` (`KBP.DUEL_DEFAULT`) |
 | `bracket` | Groupes + phase finale ; propagation des vainqueurs à chaque changement | `bracket.js`, `test-data.js` | Bracket & Groupes | groups, bracket | `shared/bracket.js` (`KBB.defaultBracket()`) |
 | `bracketGraphics` | Visibilité groupes / bracket, `highlightLive` | `bracket.js` | Bracket & Groupes, Régie | groups, bracket | `shared/bracket.js` (`KBB.GRAPHICS_DEFAULT`) |
@@ -92,6 +96,10 @@ Les sauvegardes, l'export et l'import portent sur la liste `NAMES` de `extension
 | `data:restore` | `{ file }` | `{ backup }` | `data-admin.js` |
 | `data:testData` | — | `{ backup }` | `test-data.js` |
 | `vetoTeams:newLinks` | — | `{ tokens }` (les anciens liens ne marchent plus) | `veto-teams.js` |
+| `overlay:stinger` | `{ id, action: 'show'\|'hide'\|'toggle', exclusive? }` | `{ done }` ; le changement a lieu au point de coupe (envoyé par `KBO` quand `fullscreenStinger` est actif) | `companion.js` |
+| `transition:cancel` | — | `{ cancelled }` : annule l'action en attente d'une transition lancée par le serveur (Régie, « Tout masquer ») | `companion.js` |
+| `companion:info` | — | `{ token, fromEnv }` (jeton de l'API Companion) | `companion.js` |
+| `companion:newToken` | — | `{ token }` (l'ancien ne marche plus) ; refusé si `COMPANION_TOKEN` est fixé | `companion.js` |
 
 Une erreur levée dans un handler est renvoyée au panneau comme message d'erreur (texte) ; `TypeError` / `ReferenceError` sont journalisées avec la pile.
 
@@ -108,8 +116,9 @@ Une erreur levée dans un handler est renvoyée au panneau comme message d'erreu
 | `GET /valorant-tournament/veto/:jeton/state?v=` | jeton | État vu par l'équipe, interrogé chaque seconde ; 204 si la version `v` est à jour | `veto-teams.js` |
 | `POST /valorant-tournament/veto/:jeton/action` | jeton + même origine, 4 ko | `{ type: 'map', map, index }` ou `{ type: 'side', side, index }` ; refusé (409) hors tour ou si `index` est dépassé | `veto-teams.js` |
 | `GET /valorant-tournament/veto-assets/…` | aucune | Polices et logo de la page équipe | `veto-teams.js` |
+| `GET\|POST /valorant-tournament/api/…` | jeton Companion (+ même origine pour un POST) | API de pilotage : overlays, scène, transition, lower thirds, score, état. Détail de chaque route : [COMPANION.md](COMPANION.md#4-référence-de-lapi) | `companion.js` |
 
-`nodecg.mount` n'applique aucune authentification : toute route ajoutée doit utiliser `requireLogin` (et `sameOrigin` pour un POST), voir `extension/lib/http.js`. Exception voulue : les pages de veto des équipes, protégées par leur jeton et limitées au veto de leur équipe. Pas de connexion permanente (SSE, WebSocket) sur ces routes : NodeCG attendrait sa fermeture pour s'arrêter. « Connexion » n'a d'effet que si un mot de passe est configuré.
+`nodecg.mount` n'applique aucune authentification : toute route ajoutée doit utiliser `requireLogin` (et `sameOrigin` pour un POST), voir `extension/lib/http.js`. Exceptions voulues : les pages de veto des équipes, protégées par leur jeton et limitées au veto de leur équipe ; l'API Companion, protégée par son jeton (`db/companion-token` ou `COMPANION_TOKEN`), qui reproduit côté serveur les règles de `KBO` (plein écran exclusif) et de la Régie (scène, transition). Une route ajoutée à cette API se documente à deux endroits : `docs/COMPANION.md` et `ROUTES` (et `QUICK` si besoin) dans `dashboard/companion.html`. Pas de connexion permanente (SSE, WebSocket) sur ces routes : NodeCG attendrait sa fermeture pour s'arrêter. « Connexion » n'a d'effet que si un mot de passe est configuré.
 
 ## Le socle partagé (`shared/`)
 | Objet | Fichier | Rôle |
@@ -117,17 +126,18 @@ Une erreur levée dans un handler est renvoyée au panneau comme message d'erreu
 | `KB` | `kb.js` | Socle de toutes les pages : `KB.esc`, `KB.rep.<coeur>`, `KB.watch(names, render)` (rendu groupé par image), équipes (`team`, `sides`, `seriesScore`, `teamColor`, `teamLogo`, `orderedTeams`), données Valorant (`map`, `agent`, `mapNames`, `agentInfo`), joueurs (`player`, `roster`, `pickOf`, `teamOf`, `key`, `roleLabel`), animations (`presence`, `scene`, `restart`, `countUp`, `fit`), `formatCountdown`. Contient aussi le rechargement automatique des graphics (`kbBuild`). |
 | `KBDefaults` | `defaults.js` | Valeurs par défaut des replicants coeur (fonctions qui renvoient un objet neuf), `DEFAULT_POOL`, `COUNTDOWN_LABEL`. UMD. |
 | `KBD` | `dash.js` | Outils des panneaux : `flash`, `confirm` / `arm` (2 clics), `deferWhileEditing`, `fillSelect`, `teamOptions`, `getPath` / `setPath`, `bindDirty` (brouillon + « non appliqué »). |
-| `KBO` | `overlays.js` | Registre unique des 13 overlays pilotables (`ITEMS`) : `show` / `hide` / `toggle` / `hideAll`, exclusivité « un seul plein écran », bouton et ligne **AFFICHER / ● À L'ANTENNE**. N'écrit que les booléens `visible`. |
+| `KBOList` | `overlay-list.js` | Liste des overlays pilotables (`ITEMS` : id, replicant, chemin du booléen, plein écran, `needs`) et des scènes de fond (`SCENES`). UMD : lue par `KBO`, la Régie et l'API Companion. |
+| `KBO` | `overlays.js` | Registre des overlays pilotables (`ITEMS` = `KBOList.ITEMS` + précisions `hint`) ; option `KBO.stinger` (plein écran par le stinger, `{ stinger: false }` pour une action déjà sous transition) ; `show` / `hide` / `toggle` / `hideAll`, exclusivité « un seul plein écran », bouton et ligne **AFFICHER / ● À L'ANTENNE**. N'écrit que les booléens `visible`. |
 | `KBLT` | `lt-form.js` | Formulaire des lower thirds (gauche / centre / droite), commun à la Régie (`compact`) et au panneau Lower thirds ; `mountCrew` : plateau host / casters ; `mountMonitor` : moniteur « À l'antenne » (aperçu réel + état). |
 | `KBI` | `tracker-import.js` | Import tracker.gg côté navigateur : `parseRiotId`, `request` (extension sinon onglet manuel), `hasExtension`, `bookmarklet`, `trackerUrl`, `apiUrl`. Indépendant de `kb.js`. |
 | `KBM` | `maps.js` | Partie maps : `mapsGraphics`, réglages et modèle géométrique du stinger (`trSettings`, `stingerTiming`, `stingerModel`, `TRANSITION_*`), helpers des écrans maps (`mapAt`, `patch`, `flashChanges`…). UMD. |
 | `KBMatch` | `match.js` | Préréglages de veto, `MATCH_DEFAULTS`, état du veto, phases. UMD. |
 | `KBScenes` | `scenes.js` | Écrans de fond : `DEFAULT_TEXTS`, `DEFAULT_ROTATION`, `ROTATION_TYPES`, helpers (compte à rebours, prochain match, ambiance). UMD (côté Node : les seules constantes). |
-| `KBP` | `player.js` | Défauts `STATS_DEFAULT`, `DUEL_DEFAULT`, stats du duel, particules. UMD. |
+| `KBP` | `player.js` | Défauts `STATS_DEFAULT`, `DUEL_DEFAULT`, vues de la fiche (`VIEWS`, `view`), lignes du tableau par rôle (`ROLE_KEYS`, `roleRows`), stats du duel, particules. UMD. |
 | `KBB` | `bracket.js` | Bracket : `defaultBracket`, `emptyMatch`, `standings`, `propagate`, `quarterPairs`, `GRAPHICS_DEFAULT`. UMD, utilisé aussi par le serveur. |
 | `LIVE` | `live.js` | Défauts `live*`, emplacements (`SIDES`), rôles des intervenants (`ROLES`), styles et presets automatiques des lower thirds, géométrie du 50/50 (`dualFrames`). UMD. |
 
-Feuilles de style : `theme.css` (overlays, importe `fonts.css`), `dashboard.css` (panneaux), `maps.css`, `match.css`, `scenes.css` (par partie). Ordre de chargement dans un panneau : `kb.js` → modules de partie → `dash.js` → `overlays.js` → `lt-form.js`.
+Feuilles de style : `theme.css` (overlays, importe `fonts.css`), `dashboard.css` (panneaux), `maps.css`, `match.css`, `scenes.css` (par partie). Ordre de chargement dans un panneau : `kb.js` → modules de partie → `dash.js` → `overlay-list.js` → `overlays.js` → `lt-form.js`.
 
 ## Conventions de code
 - Tabulations, guillemets simples, points-virgules, style compact existant (`.editorconfig`). Pas de reformatage en masse.
@@ -151,7 +161,7 @@ Références : `Medias/` (affiche et logo, hors git) et `shared/theme.css`, à l
 - **Identité** : tournoi **KB SERIES**, édition spéciale **Epitech**, présenté par **CYCOM**. Nuit bleu-indigo, étoiles, bleu électrique, filets et cadres **dorés**, néon orange rare ; langage Valorant : coins coupés, trapèzes, diagonales, typo condensée en capitales.
 - **Tokens** (`:root` de `theme.css`) : fonds `--kb-night-0…3`, `--kb-indigo` ; bleus `--kb-blue`, `--kb-blue-hi`, `--kb-blue-glow` ; or `--kb-gold`, `--kb-gold-hi`, `--kb-gold-dim` ; `--kb-orange`, `--kb-red` ; texte `--kb-text`, `--kb-muted`, `--kb-line`, `--kb-ink` (texte sur fond or) ; `--team-a` / `--team-b` ; `--kb-cut` ; easings `--kb-ease-out`, `--kb-ease-inout`. Pas de nouvelle palette.
 - **Polices** (locales, `shared/fonts/`, licence OFL, aucune dépendance à Google Fonts) : Anton `--kb-display` (gros titres, chiffres), Poppins `--kb-ui` (labels espacés), Barlow Condensed `--kb-num` (infos compactes).
-- **Couleurs** : `--kb-red` réservé aux défaites, au LIVE et aux bans. Couleur d'équipe : `team.color`, sinon `KB.teamColor` (`KB.TEAM_COLORS`, mêmes valeurs que `--team-a` / `--team-b`).
+- **Couleurs** : `--kb-red` réservé aux défaites, au LIVE, aux bans et au bug Replay. Couleur d'équipe : `team.color`, sinon `KB.teamColor` (`KB.TEAM_COLORS`, mêmes valeurs que `--team-a` / `--team-b`).
 - **Classes** : `.kb-bg` (+ `__art`, `__stars`, `__grid`), `.kb-frame`, `.kb-panel`, `.kb-rule`, `.kb-kicker`, `.kb-label`, `.kb-title`, `.kb-neon`, `.kb-pill`, `.kb-trapeze`, `.kb-team-mono`, `.kb-marquee`, `.kb-shine`. Logos via `KB.img` (`kbs-logo.png`, `cycom-alpha.png`, `epitech-alpha.png`, `poster-art.webp`).
 - **Mise en page** : 1920×1080, `<html class="kb-graphic">` ; fond **transparent** pour les overlays en jeu (lower thirds, ticker), fond plein `.kb-bg` pour les écrans plein écran ; 64 px de marge de sécurité ; données manquantes gérées proprement (monogramme `KB.teamLogo`, « – », jamais `undefined`).
 - **Animations** : entrée en cascade `.kb-anim` + `--i` sous `.kb-in`, sortie `.kb-out` rapide ; `KB.scene` / `KB.presence` gèrent l'affichage ; `.kb-idle` met en pause toutes les animations d'un overlay masqué (n'anime jamais un élément visible dans une racine masquée) ; animer `transform` / `opacity`, pas la mise en page ; une donnée qui change se met à jour en place, sans rejouer toute l'entrée.
@@ -160,13 +170,13 @@ Références : `Medias/` (affiche et logo, hors git) et `shared/theme.css`, à l
 1. Crée `graphics/<nom>.html` : `<html class="kb-graphic">`, `theme.css`, `kb.js` (+ modules de partie), lecture par `KB.watch`, affichage par `KB.scene` ou `KB.presence`.
 2. Déclare-le dans `package.json` → `nodecg.graphics` (`file`, `width: 1920`, `height: 1080`) : `npm run check` le parcourt alors automatiquement.
 3. S'il a besoin d'un replicant de visibilité : déclare-le avec sa valeur par défaut dans `extension/<partie>.js` (valeur définie dans `shared/<partie>.js`), ajoute-le à `NAMES` (et à `OVERLAYS`) dans `extension/lib/backup.js`, et au bon groupe de `extension/data-admin.js`.
-4. Pour le piloter depuis la Régie : ajoute une entrée à `KBO.ITEMS` (`shared/overlays.js`).
+4. Pour le piloter depuis la Régie et l'API Companion : ajoute une entrée à `KBOList.ITEMS` (`shared/overlay-list.js`), et sa précision éventuelle à `HINTS` (`shared/overlays.js`). Ajoute-le au tableau des identifiants de `docs/COMPANION.md` (la page `dashboard/companion.html` le reprend toute seule).
 5. Pour qu'il soit dans la source unique : ajoute-le à `LAYERS` (ou `SCENES` pour un écran de fond) dans `graphics/stream.html`, et à la liste des URLs de `dashboard/regie.html`.
 6. Mets à jour le tableau des overlays du `README.md`.
 
 ## Ajouter un panneau
 1. Crée `dashboard/<nom>.html` avec `../shared/dashboard.css` et les scripts dans l'ordre du socle (voir plus haut).
-2. Déclare-le dans `package.json` → `nodecg.dashboardPanels` (`name`, `title`, `file`, `width`, `headerColor`, `workspace` ; sans `workspace` il va dans « Main Workspace »).
+2. Déclare-le dans `package.json` → `nodecg.dashboardPanels` (`name`, `title`, `file`, `width`, `headerColor`, `workspace` ; sans `workspace` il va dans « Main Workspace » ; `fullbleed: true` à la place de `width` et `workspace` = onglet à part en pleine largeur).
 3. Nouveau global partagé : ajoute son nom à la liste `kb` de `eslint.config.js`.
 4. Mets à jour le tableau des panneaux du `README.md` et `docs/REGIE.md`.
 

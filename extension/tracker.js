@@ -2,6 +2,7 @@
 // tracker.gg bloque les requêtes serveur (Cloudflare, 403) : le JSON est récupéré dans le navigateur de l'utilisateur
 // (extension compagnon Chrome / Edge / Firefox, favori ou copier-coller) puis envoyé à la route POST tracker-import (tracker-routes.js).
 // Replicant : playerProfiles { [riotId en minuscules]: profil normalisé } ; JSON bruts gardés dans db/tracker/.
+// Au démarrage, un profil sans stats par rôle (import ancien) est re-normalisé depuis son JSON brut.
 //   normalize(raw, playlist) → profil (lève une erreur lisible si le JSON est inutilisable)
 const fs = require('fs');
 const path = require('path');
@@ -117,6 +118,32 @@ function normalize(raw, playlist = 'competitive') {
 			hs: dv(s.stats.headshotsPercentage),
 		}));
 
+	// Performances par rôle (Duelist, Initiator, Controller, Sentinel), du plus joué au moins joué.
+	// key = nom anglais en minuscules (mêmes clés que KB.ROLES) ; *Value = valeur numérique, pour comparer ou trier.
+	const roles = of('agent-role')
+		.filter((s) => typeof s.metadata.name === 'string' && s.metadata.name)
+		.sort((a, b) => (num(b.stats.timePlayed) || 0) - (num(a.stats.timePlayed) || 0))
+		.map((s) => ({
+			key: s.metadata.name.toLowerCase(),
+			name: s.metadata.name,
+			// Icône servie par valorant-api.com (clé = UUID du rôle) : le CDN de tracker.gg ne les sert pas toutes (Sentinelle : 404)
+			icon: uuidFrom(s.attributes.key) ? `${VAPI}/agents/roles/${uuidFrom(s.attributes.key)}/displayicon.png` : img(s.metadata.imageUrl),
+			matches: dv(s.stats.matchesPlayed),
+			matchesValue: num(s.stats.matchesPlayed),
+			winPct: dv(s.stats.matchesWinPct),
+			winValue: num(s.stats.matchesWinPct),
+			kd: dv(s.stats.kDRatio),
+			kdValue: num(s.stats.kDRatio),
+			acs: dv(s.stats.scorePerRound),
+			acsValue: num(s.stats.scorePerRound),
+			adr: dv(s.stats.damagePerRound),
+			adrValue: num(s.stats.damagePerRound),
+			kast: dv(s.stats.kAST),
+			kastValue: num(s.stats.kAST),
+			timePlayed: dv(s.stats.timePlayed),
+			timeValue: num(s.stats.timePlayed),
+		}));
+
 	const cardId = uuidFrom(info.avatarUrl);
 	const rankMeta = (st.rank && st.rank.metadata) || {};
 	const peakMeta = (peakStat && peakStat.metadata) || {};
@@ -139,6 +166,7 @@ function normalize(raw, playlist = 'competitive') {
 		peak: peakStat ? { name: peakMeta.tierName || peakStat.displayValue, icon: img(peakMeta.iconUrl), act: peakMeta.actName } : null,
 		stats,
 		agents,
+		roles,
 		maps,
 		weapons,
 		trackerUrl: `https://tracker.gg/valorant/profile/riot/${encodeURIComponent(riotId)}/overview`,
@@ -146,15 +174,37 @@ function normalize(raw, playlist = 'competitive') {
 	};
 }
 
+const rawFile = (id) => path.join(TRACKER, id.replace(/[^a-z0-9_-]/gi, '_') + '.json');
+
 module.exports = function (nodecg) {
 	const profiles = nodecg.Replicant('playerProfiles');
+
+	// Profils importés avant l'ajout des stats par rôle : re-normalisés depuis leur JSON brut (db/tracker/), sans ré-import.
+	// La date d'import d'origine est gardée (les stats datent toujours de ce jour-là).
+	const old = Object.values(profiles.value || {}).filter((p) => p && p.id && !Array.isArray(p.roles));
+	if (old.length) {
+		const next = { ...profiles.value };
+		let done = 0;
+		for (const p of old) {
+			try {
+				const fresh = normalize(JSON.parse(fs.readFileSync(rawFile(p.id), 'utf8')), p.playlist || 'competitive');
+				if (fresh.id !== p.id) continue;
+				next[p.id] = { ...fresh, fetchedAt: p.fetchedAt || fresh.fetchedAt };
+				done++;
+			} catch { /* JSON brut absent ou illisible : le profil reste tel quel (sans stats par rôle) */ }
+		}
+		if (done) {
+			profiles.value = next;
+			nodecg.log.info(`Stats par rôle ajoutées à ${done} profil(s) tracker.gg (depuis db/tracker/)`);
+		}
+	}
 
 	// Normalise, garde le JSON brut (pour re-normaliser plus tard sans ré-importer) et enregistre le profil
 	function store(raw, playlist) {
 		const p = normalize(raw, playlist);
 		try {
 			fs.mkdirSync(TRACKER, { recursive: true });
-			fs.writeFileSync(path.join(TRACKER, p.id.replace(/[^a-z0-9_-]/gi, '_') + '.json'), JSON.stringify(raw));
+			fs.writeFileSync(rawFile(p.id), JSON.stringify(raw));
 		} catch (e) { nodecg.log.warn('Sauvegarde JSON brut impossible :', e.message); }
 		profiles.value = { ...(profiles.value || {}), [p.id]: p };
 		nodecg.log.info(`Stats importées : ${p.riotId} (${p.stats.matches.display} matchs)`);

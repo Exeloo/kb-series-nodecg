@@ -1,6 +1,6 @@
 # KB SERIES × Valorant — régie et overlays
 
-Habillage du tournoi Valorant **KB SERIES** pour OBS : 18 overlays 1920×1080, réunis dans une seule page pour OBS, et une régie web pour tout piloter en direct.
+Habillage du tournoi Valorant **KB SERIES** pour OBS : 19 overlays 1920×1080, réunis dans une seule page pour OBS, et une régie web pour tout piloter en direct.
 Le projet tourne sur ton PC avec [NodeCG](https://www.nodecg.dev/) ; aucune connaissance technique n'est nécessaire pour l'utiliser.
 
 ## Démarrage rapide
@@ -35,7 +35,8 @@ Scènes d'attente, overlays et transition se pilotent ensuite depuis la **Régie
 | **Stats Joueur · fiche et duel** | 1. Match & Joueurs | Fiche stats d'un joueur, duel entre deux joueurs |
 | **Écrans (attente, pause, fin, planning)** | 2. Écrans & Tournoi | Compte à rebours, textes des écrans, planning, infos du tournoi |
 | **Bracket & Groupes** | 2. Écrans & Tournoi | Classement des groupes et phase finale |
-| **Données · sauvegarde, import, réglages** | 3. Données | Exporter / importer, sauvegardes, données de test, réinitialisation |
+| **Données · sauvegarde, import, réglages** | 3. Données | Exporter / importer, sauvegardes, données de test, réinitialisation, jeton Bitfocus Companion |
+| **Companion · boutons et API** | Companion (onglet plein écran) | Boutons Bitfocus Companion prêts à copier (URL, en-tête, corps), constructeur et test de chaque route, référence de l'API |
 
 Visite guidée, bouton par bouton : [docs/REGIE.md](docs/REGIE.md).
 
@@ -53,13 +54,14 @@ Avec `stream.html`, tu n'as besoin d'aucune autre URL. Chaque overlay reste disp
 | `transition.html` | Transition (stinger), au-dessus de tout | Régie, Maps & Transitions |
 | `lower-third.html` | 3 lower thirds, gauche, centre et droite (transparent) : host, casters, annonces | Lower thirds, Régie |
 | `ticker.html` | Bandeau défilant en bas (transparent) | Ticker défilant, Régie |
+| `replay-bug.html` | Bug « REPLAY » en haut à droite, pendant un ralenti (transparent) | Régie |
 | `versus.html` | Présentation du match + rosters | Match, Veto des maps, Régie |
 | `veto.html` | Veto des maps en direct | Veto des maps, Match, Régie |
 | `veto-recap.html` | Récap : ordre des maps, picks, côtés | Veto des maps, Match, Régie |
 | `map-intro.html` | Intro de map + rosters des deux équipes | Maps & Transitions, Régie |
 | `map-series.html` | Maps de la série | Maps & Transitions, Régie |
 | `map-result.html` | Résultat de map + MVP | Maps & Transitions, Régie |
-| `player-stats.html` | Stats d'un joueur | Stats Joueur, Régie |
+| `player-stats.html` | Stats d'un joueur (vue générale ou performances par rôle) | Stats Joueur, Régie |
 | `player-duel.html` | Duel joueur contre joueur | Stats Joueur, Régie |
 | `groups.html` | Classement des groupes | Bracket & Groupes, Régie |
 | `bracket.html` | Arbre de la phase finale | Bracket & Groupes, Régie |
@@ -74,6 +76,7 @@ Pour garder une copie ou changer de PC : panneau **Données** → **⬇ Exporter
 ## Aller plus loin
 - [docs/JOUR-DE-MATCH.md](docs/JOUR-DE-MATCH.md) : checklist imprimable, de la veille au soir.
 - [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md) : mettre la régie en ligne (Railway, serveur perso).
+- [docs/COMPANION.md](docs/COMPANION.md) : piloter la régie depuis un Stream Deck avec Bitfocus Companion (API HTTP) ; la même chose, avec les valeurs prêtes à copier, dans l'onglet **Companion** du tableau de bord.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) : fonctionnement du code (développeurs, agents IA).
 - [tools/tracker-extension/README.md](tools/tracker-extension/README.md) : extension d'import tracker.gg (Chrome, Edge, Firefox).
 

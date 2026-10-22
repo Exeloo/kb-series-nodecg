@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>KB SERIES · Écran 50/50</title>
 <!--
-	Scène plein écran « 50/50 » : fond percé de deux trous pour les caméras (LIVE.dualFrames), labels et bandeau du match.
+	Scène plein écran « 50/50 » : fond percé de deux trous 16:9 pour les caméras (LIVE.dualFrames), labels et bandeau du match.
 	Replicants lus : liveDualCam (défauts : LIVE.defaults.liveDualCam), match, teams, playerData, playerProfiles, valorantData.
 	Choisie dans la régie (scène de fond de stream.html) ; labels réglés dans le panneau Écran 50/50 (dashboard/dual-cam.html).
 -->
@@ -29,15 +29,17 @@
 	@keyframes corner-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 	@keyframes run { 0% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: calc(-1 * var(--len)); opacity: 1; } }
 
+	/* Positions calées sur les trous (LIVE.dualFrames, format 16:9) : --fy = haut des trous, --fb = bas (posées par drawFrames) */
+	#root { --fy: 220px; --fb: 724px; }
 	/* Séparation centrale */
-	.seam { position: absolute; left: 958px; top: 70px; width: 4px; height: 800px; border-radius: 4px; background: linear-gradient(180deg, transparent, var(--kb-gold) 20%, var(--kb-gold-hi) 50%, var(--kb-gold) 80%, transparent); opacity: .7; transform: scaleY(0); overflow: hidden; }
+	.seam { position: absolute; left: 958px; top: calc(var(--fy) + 30px); width: 4px; height: calc(var(--fb) - var(--fy) - 60px); border-radius: 4px; background: linear-gradient(180deg, transparent, var(--kb-gold) 20%, var(--kb-gold-hi) 50%, var(--kb-gold) 80%, transparent); opacity: .7; transform: scaleY(0); overflow: hidden; }
 	.kb-in .seam { animation: seam-in 1s var(--kb-ease-out) .5s forwards; }
 	@keyframes seam-in { to { transform: none; } }
-	.seam::after { content: ''; position: absolute; left: -2px; right: -2px; height: 120px; top: 0; background: linear-gradient(180deg, transparent, #fff, transparent); animation: seam-run 4.5s ease-in-out 2s infinite; transform: translateY(-140px); }
-	@keyframes seam-run { 0% { transform: translateY(-140px); } 60%, 100% { transform: translateY(820px); } }
+	.seam::after { content: ''; position: absolute; left: -2px; right: -2px; height: 120px; top: -140px; background: linear-gradient(180deg, transparent, #fff, transparent); animation: seam-run 4.5s ease-in-out 2s infinite; }
+	@keyframes seam-run { 0% { top: -140px; } 60%, 100% { top: calc(100% + 20px); } }
 
 	/* Labels de chaque moitié */
-	.label { position: absolute; top: 918px; height: 98px; max-width: 600px; display: flex; align-items: center; gap: 18px; padding: 0 34px 0 28px; --kb-cut: 18px; border-color: var(--kb-gold-dim); }
+	.label { position: absolute; top: calc(var(--fb) + 32px); height: 98px; max-width: 600px; display: flex; align-items: center; gap: 18px; padding: 0 34px 0 28px; --kb-cut: 18px; border-color: var(--kb-gold-dim); }
 	.label.l { left: 64px; }
 	.label.r { right: 64px; flex-direction: row-reverse; text-align: right; padding: 0 28px 0 34px; clip-path: polygon(0 0, calc(100% - var(--kb-cut)) 0, 100% var(--kb-cut), 100% 100%, var(--kb-cut) 100%, 0 calc(100% - var(--kb-cut))); }
 	.label::before { content: ''; position: absolute; top: 0; bottom: 0; width: 5px; background: var(--c, var(--kb-gold)); box-shadow: 0 0 14px var(--c, var(--kb-gold)); animation: bar-breathe 2.8s ease-in-out infinite; }
@@ -55,7 +57,7 @@
 	.label .rank { width: 40px; height: 40px; object-fit: contain; flex: 0 0 auto; }
 
 	/* Bandeau info au centre */
-	.info { position: absolute; left: 690px; width: 540px; top: 914px; height: 106px; display: flex; flex-direction: column; align-items: center; justify-content: center; --kb-cut: 20px; }
+	.info { position: absolute; left: 690px; width: 540px; top: calc(var(--fb) + 28px); height: 106px; display: flex; flex-direction: column; align-items: center; justify-content: center; --kb-cut: 20px; }
 	.info .k { font: 700 13px var(--kb-ui); letter-spacing: .28em; text-transform: uppercase; color: var(--kb-gold); white-space: nowrap; max-width: 480px; overflow: hidden; text-overflow: ellipsis; }
 	.info .row { display: flex; align-items: center; gap: 14px; margin: 3px 0 1px; }
 	.info .tag { font: 400 28px/1.1 var(--kb-display); letter-spacing: .04em; min-width: 70px; }
@@ -66,7 +68,7 @@
 	.info .m { font: 700 16px var(--kb-num); letter-spacing: .22em; text-transform: uppercase; color: var(--kb-text); opacity: .9; }
 	.info .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--kb-red); margin-right: 8px; vertical-align: 1px; animation: blink 1.4s ease-in-out infinite; }
 	@keyframes blink { 50% { opacity: .25; } }
-	.medal { position: absolute; left: 905px; top: 912px; width: 110px; height: 110px; }
+	.medal { position: absolute; left: 905px; top: calc(var(--fb) + 26px); width: 110px; height: 110px; }
 	.medal img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 6px 18px rgba(0, 0, 0, .6)); animation: medal-float 5s ease-in-out infinite; }
 	@keyframes medal-float { 50% { transform: translateY(-5px); } }
 	.score-bump { animation: bump .8s var(--kb-ease-out); }
@@ -101,6 +103,8 @@
 	// Trous + cadres dorés (dessinés une fois)
 	(function drawFrames() {
 		const frames = LIVE.dualFrames;
+		root.style.setProperty('--fy', Math.min(...frames.map((f) => f.y)) + 'px');
+		root.style.setProperty('--fb', Math.max(...frames.map((f) => f.y + f.h)) + 'px');
 		KB.$('#bg').style.clipPath = `path(evenodd, "M0 0 H1920 V1080 H0 Z ${frames.map((f) => toPath(shape(f))).join(' ')}")`;
 		KB.$('#frames').innerHTML = frames.map((f, i) => {
 			const pts = shape(f, 2), len = Math.ceil(perim(pts));

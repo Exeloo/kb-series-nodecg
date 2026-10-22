@@ -17,7 +17,7 @@ const wait = +opt('wait', 1500);
 
 const pages = [];
 if (only !== 'dashboard') for (const g of pkg.nodecg.graphics) pages.push({ kind: 'graphics', file: g.file, w: g.width, h: g.height });
-if (only !== 'graphics') for (const p of pkg.nodecg.dashboardPanels) pages.push({ kind: 'dashboard', file: p.file, w: 160 * p.width, h: 900 });
+if (only !== 'graphics') for (const p of pkg.nodecg.dashboardPanels) pages.push({ kind: 'dashboard', file: p.file, w: p.fullbleed ? 1600 : 160 * p.width, h: 900 });
 
 (async () => {
 	try { await fetch(base); } catch { console.error(`Serveur injoignable sur ${base} — lance d'abord start.bat (ou npm start).`); process.exit(1); }

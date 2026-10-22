@@ -33,7 +33,7 @@ Pour le régisseur : la checklist à imprimer, de la veille au soir jusqu'à la 
 1. **Veto** : panneau **Veto des maps** → **AFFICHER** sur **Veto des maps** ; clique les maps au fil des bans et picks ; choisis les côtés (**… en ATTAQUE** / **… en DÉFENSE**).
    Ou laisse les équipes le faire : **Liens pour les équipes** → **Copier** le lien de chaque équipe et envoie-le-lui (même réseau que la régie). Tu peux toujours corriger depuis le panneau.
 2. **Récap** : **AFFICHER** sur **Récap du veto**.
-3. **Maps du match** : panneau **Match** → **Remplir depuis le veto** ; la map 1 doit porter le bouton doré **Map en cours** (sinon clique **Définir en cours** sur sa ligne).
+3. **Maps du match** : remplies toutes seules par le veto (vérifie la liste dans le panneau **Match** ; **Remplir depuis le veto** la refait si besoin) ; la map 1 doit porter le bouton doré **Map en cours** (sinon clique **Définir en cours** sur sa ligne).
 4. **Versus** : **AFFICHER** sur **Versus** (Régie ou panneau Match).
 5. **Agents** : panneau **Match** → **Agents joués par map** (map 1).
 6. **Intro de map** : panneau **Maps & Transitions** → **Intro de map** (menu **Map** sur « Auto — map courante ») → **AFFICHER**.

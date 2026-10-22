@@ -64,7 +64,28 @@
 		cinema: { label: 'Cinématique', coverIn: 1400, holdLogo: 900, holdMap: 4000, holdReplay: 1800, revealOut: 1300, stagger: 180, easing: 'smooth', direction: 'down', angle: 6, panels: 4, palette: 'mono', logoAnim: 'fade', logoSize: 380, mapZoom: 0.3, mapTitle: 'bottom', mapPick: true },
 		explosif: { label: 'Explosif', coverIn: 520, holdLogo: 500, holdMap: 2200, holdReplay: 1000, revealOut: 480, stagger: 70, easing: 'elastic', direction: 'center', angle: 25, panels: 5, palette: 'gold', logoAnim: 'zoom', logoSize: 520, mapPick: true },
 	};
-	// Types de transition : logo seul, logo + map, replay. Replicant `transition` : { at, map, kind? } (kind absent = ancien format)
+	/**
+	 * Style d'une seule transition (API Companion, paramètre style) : un préréglage intégré (id ou libellé : cinema, Cinématique,
+	 * cinematic…) ou un préréglage perso (nom), sans accents ni majuscules. Renvoie { id, label, settings } ou null si inconnu.
+	 * settings = réglages complets à jouer (comme si le préréglage était appliqué) ; les réglages enregistrés ne changent pas.
+	 */
+	const norm = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+	const STYLE_ALIASES = { cinematic: 'cinema', cinematique: 'cinema', fast: 'rapide', cut: 'coupure', explosive: 'explosif' };
+	KBM.trStyle = (current, style) => {
+		const k = norm(style);
+		if (!k) return null;
+		const id = STYLE_ALIASES[k] || Object.keys(KBM.TRANSITION_PRESETS).find((p) => p === k || norm(KBM.TRANSITION_PRESETS[p].label) === k);
+		if (id) return { id, label: KBM.TRANSITION_PRESETS[id].label, settings: KBM.trApplyPreset(current, KBM.TRANSITION_PRESETS[id]) };
+		const own = (KBM.trSettings(current).presets || []).find((p) => norm(p.name) === k);
+		return own ? { id: own.name, label: own.name, settings: KBM.trApplyPreset(current, own) } : null;
+	};
+	/** Styles acceptés par KBM.trStyle : [{ id, label }] (intégrés puis perso) */
+	KBM.trStyles = (current) => [
+		...Object.entries(KBM.TRANSITION_PRESETS).map(([id, p]) => ({ id, label: p.label })),
+		...(KBM.trSettings(current).presets || []).map((p) => ({ id: p.name, label: p.name + ' (perso)' })),
+	];
+
+	// Types de transition : logo seul, logo + map, replay. Replicant `transition` : { at, map, kind?, style? } (kind absent = ancien format ; style : KBM.trStyle, réglages enregistrés si absent)
 	KBM.TR_KINDS = { logo: 'Logo seul', map: 'Logo + map', replay: 'Replay' };
 	/** Type d'une transition : 'replay' | 'map' | 'logo'. Accepte une valeur du replicant transition, un type ou un booléen « avec map » */
 	KBM.trKind = (v) => {

@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="utf-8">
+	<title>Companion</title>
+	<!--
+		Companion : aide à la configuration des boutons Bitfocus Companion et référence de l'API (extension/companion.js).
+		Panneau plein écran (onglet à part). Construit pour chaque route l'URL, l'en-tête et le corps à coller dans une action
+		du module « Generic: HTTP Requests », selon les réglages choisis (où mettre le jeton, variable Companion, URL relative / complète).
+		Messages : companion:info (jeton). Routes appelées : GET /valorant-tournament/api (listes du moment : presets, maps) ;
+		bouton « Tester » : la route construite (les POST agissent sur le direct, confirmation en 2 clics).
+		Réglages de la page gardés dans le navigateur (localStorage). Le jeton n'est jamais affiché : seulement copié.
+		Doit suivre docs/COMPANION.md : une route ajoutée à l'API s'ajoute ici (ROUTES, et QUICK si elle mérite un bouton prêt à l'emploi).
+	-->
+	<link rel="stylesheet" href="../shared/dashboard.css">
+	<style>
+		body { padding: 0; }
+		.layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); min-height: 100vh; }
+		nav { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 16px 12px; border-right: 1px solid var(--line); background: rgba(17, 24, 69, .5); }
+		nav a { display: block; padding: 4px 8px; border-radius: 4px; color: var(--text); text-decoration: none; font-size: 13px; }
+		nav a:hover { background: var(--panel-2); }
+		nav a.sub { padding-left: 18px; color: var(--muted); font-size: 12px; font-family: Consolas, monospace; }
+		nav .ttl { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); margin: 12px 8px 4px; }
+		nav .ttl:first-child { margin-top: 0; }
+		main { padding: 16px 24px 80px; max-width: 1180px; }
+		main > section { scroll-margin-top: 12px; }
+		h2 { font: 700 20px 'Segoe UI', sans-serif; margin: 28px 0 6px; color: var(--text); }
+		h2:first-child { margin-top: 0; }
+		h2 small { font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 8px; }
+		p, li { color: #d7dbef; }
+		p { margin: 6px 0; }
+		ul, ol { margin: 6px 0; padding-left: 22px; }
+		code { font: 12px Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; word-break: break-word; }
+		table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 13px; }
+		th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+		th { color: var(--muted); font-weight: 600; font-size: 12px; }
+		.warn { color: var(--gold); }
+
+		/* Réglages */
+		.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px 16px; }
+		.radios label { display: flex; gap: 8px; align-items: flex-start; color: var(--text); font-size: 13px; margin: 4px 0; cursor: pointer; }
+		.radios input { width: auto; flex: 0 0 auto; margin-top: 3px; }
+		.radios small { display: block; color: var(--muted); font-size: 11px; }
+		.steps { counter-reset: st; list-style: none; padding: 0; }
+		.steps > li { counter-increment: st; position: relative; padding: 8px 0 8px 36px; border-bottom: 1px solid var(--line); }
+		.steps > li:last-child { border-bottom: 0; }
+		.steps > li::before { content: counter(st); position: absolute; left: 0; top: 8px; width: 24px; height: 24px; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--gold); color: var(--gold); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+
+		/* Champ à copier : libellé, valeur, bouton */
+		.cp { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 6px; align-items: center; margin-top: 5px; }
+		.cp > span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+		.cp > code { display: block; padding: 6px 8px; font-size: 12.5px; white-space: pre-wrap; word-break: break-all; min-height: 30px; }
+		.cp > code.none { color: var(--faint); font-style: italic; font-family: inherit; }
+		.cp button { padding: 5px 10px; font-size: 12px; min-width: 74px; }
+		.method { display: inline-block; font: 700 11px Consolas, monospace; padding: 2px 6px; border-radius: 3px; letter-spacing: .06em; }
+		.method.POST { background: rgba(255, 70, 85, .16); color: #ff8a95; border: 1px solid rgba(255, 70, 85, .4); }
+		.method.GET { background: rgba(61, 220, 151, .12); color: var(--ok); border: 1px solid rgba(61, 220, 151, .4); }
+
+		/* Boutons prêts à l'emploi */
+		.qfilter { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+		.qfilter input { max-width: 320px; }
+		.qgroup { margin-top: 14px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+		.qrow { display: grid; grid-template-columns: minmax(170px, 1.1fr) minmax(0, 2fr) auto; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 4px; }
+		.qrow:nth-child(even) { background: rgba(255, 255, 255, .025); }
+		.qrow .lbl { font-size: 13px; }
+		.qrow .lbl small { display: block; color: var(--muted); font-size: 11px; }
+		.qrow code { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+		.qrow .acts { display: flex; gap: 4px; }
+		.qrow .acts button { padding: 4px 8px; font-size: 12px; min-width: 62px; }
+		.qrow .acts button[data-open] { min-width: 0; }
+
+		/* Référence : une carte par route */
+		.route { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; margin-top: 12px; scroll-margin-top: 12px; }
+		.route.flash { animation: flash 1.2s ease-out; }
+		@keyframes flash { from { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(201, 178, 116, .5); } }
+		.route h4 { margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 600 15px Consolas, monospace; }
+		.route h4 em { font: 400 13px 'Segoe UI', sans-serif; color: var(--muted); font-style: normal; }
+		.route .doc { font-size: 13px; margin-top: 6px; }
+		.build { margin-top: 10px; padding: 10px; border-radius: 6px; background: var(--bg); border: 1px dashed var(--line); }
+		.build .bt { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+		.params { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 10px; margin: 4px 0 6px; }
+		.params label { margin: 2px 0; }
+		.test { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+		.test button { padding: 5px 10px; font-size: 12px; }
+		.test .st { font-size: 12px; color: var(--muted); }
+		.test .st.ok { color: var(--ok); } .test .st.err { color: var(--red); }
+		pre.out { margin: 6px 0 0; max-height: 260px; overflow: auto; font: 12px Consolas, monospace; background: #060a22; border: 1px solid var(--line); border-radius: 4px; padding: 8px; white-space: pre-wrap; word-break: break-all; }
+		pre.out:empty { display: none; }
+
+		@media (max-width: 860px) {
+			.layout { grid-template-columns: 1fr; }
+			nav { display: none; }
+			main { padding: 12px 16px 60px; }
+			.qrow { grid-template-columns: 1fr; }
+			.cp { grid-template-columns: 1fr auto; }
+			.cp > span { grid-column: 1 / -1; }
+		}
+	</style>
+</head>
+<body>
+<div class="layout">
+	<nav id="nav">
+		<div class="ttl">Companion</div>
+		<a href="#setup">1. Mise en place</a>
+		<a href="#quick">2. Boutons prêts à l'emploi</a>
+		<a href="#feedback">3. Boutons qui s'allument</a>
+		<div class="ttl">Référence de l'API</div>
+		<a href="#general">Généralités</a>
+		<a href="#ids">Identifiants</a>
+		<div id="navRoutes"></div>
+		<a href="#trouble">Un problème ?</a>
+	</nav>
+
+	<main>
+		<section id="setup">
+			<h2>1. Mise en place <small>Bitfocus Companion, module « Generic: HTTP Requests »</small></h2>
+			<p>Chaque bouton de Companion envoie une requête à la régie, qui fait exactement ce que ferait le bouton de la <b>Régie</b>
+				(un seul plein écran à la fois, une scène de fond masque les plein écran…). Choisis d'abord comment tu configures Companion :
+				toutes les valeurs à copier sur cette page s'adaptent.</p>
+
+			<div class="card">
+				<div class="settings">
+					<div>
+						<label for="base">Adresse de base (Base URL)</label>
+						<input id="base" spellcheck="false">
+						<div class="hint" id="baseHint"></div>
+					</div>
+					<div class="radios">
+						<div class="flabel">Où mettre le jeton</div>
+						<label><input type="radio" name="auth" value="header"> <span>En-tête <b>Authorization</b> (conseillé)<small>Body vide ; les paramètres restent dans l'URL.</small></span></label>
+						<label><input type="radio" name="auth" value="body"> <span>Corps JSON (champ <code>key</code>)<small>Le jeton et les paramètres vont dans le Body. Les GET gardent l'en-tête.</small></span></label>
+						<label><input type="radio" name="auth" value="url"> <span>Dans l'URL (<code>?key=</code>)<small>Dernier recours : le jeton apparaît dans l'URL.</small></span></label>
+					</div>
+					<div class="radios">
+						<div class="flabel">Jeton dans les boutons</div>
+						<label><input type="radio" name="tok" value="var"> <span>Variable Companion (conseillé)<small>Un seul endroit à changer si le jeton change.</small></span></label>
+						<label><input type="radio" name="tok" value="raw"> <span>Jeton en clair<small>Masqué ici (••••), mais bien copié.</small></span></label>
+						<div class="row"><label for="varName" class="shrink" style="margin:0">Nom de la variable</label><input id="varName" spellcheck="false"></div>
+					</div>
+					<div class="radios">
+						<div class="flabel">URL des actions</div>
+						<label><input type="radio" name="urlMode" value="relative"> <span>Fin de l'adresse (conseillé)<small>La Base URL est réglée dans la connexion.</small></span></label>
+						<label><input type="radio" name="urlMode" value="full"> <span>Adresse complète<small>Connexion sans Base URL.</small></span></label>
+					</div>
+				</div>
+				<div class="status"><span class="dot" id="apiDot"></span><span id="apiStatus">Vérification de l'API…</span></div>
+			</div>
+
+			<ol class="steps">
+				<li><b>Connections</b> → ajoute <b>Generic: HTTP Requests</b>. Dans ses réglages :
+					<div class="cp"><span>Base URL</span><code id="cpBase"></code><button type="button" data-copy="base">Copier</button></div>
+					<div class="hint" id="baseStepHint"></div>
+				</li>
+				<li id="stepVar"><b>Variables</b> → <b>Custom Variables</b> → crée la variable <code class="vname"></code> avec le jeton comme valeur.
+					<div class="cp"><span>Nom</span><code class="vname"></code><button type="button" data-copy="varName">Copier</button></div>
+					<div class="cp"><span>Valeur</span><code class="none">jeton secret (non affiché)</code><button type="button" data-copy="token">Copier</button></div>
+					<div class="hint">Le jeton donne la main sur le direct : ne le montre pas à l'écran. Il se change dans <b>Données → 6. Bitfocus Companion</b>
+						(l'ancien ne marche alors plus).</div>
+				</li>
+				<li id="stepRaw" class="hidden">Le jeton (à coller tel quel dans les boutons, déjà inclus dans les valeurs copiées sur cette page) :
+					<div class="cp"><span>Jeton</span><code class="none">jeton secret (non affiché)</code><button type="button" data-copy="token">Copier</button></div>
+					<div class="hint">Si le jeton change (Données → 6. Bitfocus Companion), il faudra refaire chaque bouton : la variable Companion évite ça.</div>
+				</li>
+				<li>Pour chaque bouton : <b>Press actions</b> → action <b id="stepMethod">POST</b> de cette connexion, et remplis les champs avec les valeurs d'un bouton
+					ci-dessous (<b>URL</b>, <b>Header input</b>, <b>Body</b>). Un champ marqué « vide » reste vide. Content Type : <code>application/json</code>.
+					<div class="hint">Si ta version du module ne remplace pas les variables dans l'en-tête, choisis « Jeton en clair » plus haut, ou mets le jeton dans le corps JSON.</div>
+				</li>
+			</ol>
+		</section>
+
+		<section id="quick">
+			<h2>2. Boutons prêts à l'emploi</h2>
+			<p>Copie l'URL, puis l'en-tête ou le corps selon tes réglages. <b>⚙</b> ouvre la route dans la référence pour changer les paramètres et la tester.</p>
+			<div class="qfilter"><input id="qSearch" type="search" placeholder="Filtrer (ex. veto, pause, score…)" aria-label="Filtrer les boutons"><span class="hint" id="qCount"></span></div>
+			<div id="quickList"></div>
+		</section>
+
+		<section id="feedback">
+			<h2>3. Boutons qui s'allument <small>retours visuels</small></h2>
+			<p>L'API ne prévient pas Companion d'un changement : Companion doit demander l'état régulièrement.
+				Le plus simple passe par les adresses <code>/value/…</code>, qui répondent <b>une seule valeur en texte brut</b> (<code>true</code>, <code>false</code>, <code>2</code>, <code>brb</code>…).</p>
+			<ol>
+				<li>Crée une variable personnalisée par information à suivre, par exemple <code>kb_versus</code>.</li>
+				<li><b>Triggers</b> → nouveau déclencheur, événement <b>intervalle de temps</b> (1 seconde par exemple), action <b>GET</b> de la connexion HTTP
+					sur l'URL donnée par la route <a href="#r-value">/value</a> (ex. <code>/value/overlays/versus</code>), en enregistrant la réponse dans la variable
+					(option de l'action GET qui stocke le résultat dans une variable personnalisée).</li>
+				<li>Sur le bouton : feedback <b>Internal → Variable: Check value</b>, <code>$(internal:custom_kb_versus)</code> égal à <code>true</code> → fond rouge.</li>
+			</ol>
+			<p>Score sur une touche : variables <code>kb_scoreA</code> / <code>kb_scoreB</code> alimentées par <code>/value/match/scoreA</code> et <code>/value/match/scoreB</code>,
+				puis texte du bouton <code>$(internal:custom_kb_scoreA) - $(internal:custom_kb_scoreB)</code>.</p>
+			<p class="hint">Une interrogation par seconde ne coûte rien à la régie. Évite de descendre sous 250 ms.</p>
+		</section>
+
+		<section id="general">
+			<h2>Référence · Généralités</h2>
+			<ul>
+				<li><b>Préfixe</b> de toutes les routes : <code>/valorant-tournament/api</code> (les routes ci-dessous sont écrites sans).</li>
+				<li><b>Jeton</b> obligatoire partout, au choix : en-tête <code>Authorization: Bearer &lt;jeton&gt;</code> (conseillé), en-tête <code>X-Api-Key: &lt;jeton&gt;</code>,
+					paramètre <code>?key=&lt;jeton&gt;</code> ou champ <code>key</code> du corps JSON.</li>
+				<li>Les actions sont des <span class="method POST">POST</span>, les lectures des <span class="method GET">GET</span>.</li>
+				<li><b>Paramètres</b> des actions (<code>kind</code>, <code>map</code>, <code>then</code>, <code>style</code>, <code>via</code>, <code>exclusive</code>, <code>fullscreen</code>, <code>stinger</code>) :
+					dans l'adresse (<code>?kind=map</code>) <b>ou</b> dans le corps JSON (<code>{ "kind": "map" }</code>) ; l'adresse l'emporte si les deux sont donnés.
+					Ce qui fait partie du chemin (overlay, scène, emplacement, preset, équipe, <code>plus</code> / <code>minus</code>) reste dans l'URL.</li>
+				<li>Le corps est lu en JSON quel que soit son <code>Content-Type</code> (4 ko au plus) ; un corps qui n'est pas un objet JSON est ignoré.
+					<span class="warn">Un JSON mal formé envoyé en <code>application/json</code> est refusé par NodeCG lui-même (<code>500</code>, « Internal error »).</span></li>
+				<li>Un POST envoyé par une <b>page web d'un autre site</b> est refusé (<code>403</code>) ; Companion, curl et les scripts ne sont pas concernés.</li>
+				<li>Rien n'est mis en cache (<code>Cache-Control: no-store</code>). Chaque action réussie est notée dans le journal de la régie (<code>Companion : …</code>).</li>
+			</ul>
+			<p><b>Réponse d'une action réussie</b> (<code>200</code>) : <code>{ "ok": true, "done": "Versus affiché", "state": { … } }</code> —
+				<code>done</code> décrit ce qui a été fait, <code>state</code> est l'état complet après l'action (comme <a href="#r-state">GET /state</a>).
+				Certaines routes ajoutent des champs, indiqués dans leur description.<br>
+				<b>Refus</b> : <code>{ "ok": false, "error": "…" }</code> avec le code ci-dessous.</p>
+			<table>
+				<tr><th>Code</th><th>Signification</th></tr>
+				<tr><td><code>400</code></td><td>Paramètre invalide (<code>via</code>, <code>kind</code>, <code>then</code>…)</td></tr>
+				<tr><td><code>401</code></td><td>Jeton absent ou faux</td></tr>
+				<tr><td><code>403</code></td><td>Requête envoyée par une page web d'un autre site</td></tr>
+				<tr><td><code>404</code></td><td>Route, overlay, scène, emplacement, preset, map ou équipe inconnus</td></tr>
+				<tr><td><code>409</code></td><td>Action impossible dans l'état actuel (rien à afficher, série terminée, aucune map gagnée à retirer, aucune map en cours…)</td></tr>
+				<tr><td><code>500</code></td><td>Erreur interne (voir le journal de la régie), ou corps JSON mal formé (texte « Internal error »)</td></tr>
+				<tr><td><code>503</code></td><td>Partie du serveur indisponible (erreur au démarrage, voir le journal)</td></tr>
+			</table>
+		</section>
+
+		<section id="ids">
+			<h2>Référence · Identifiants <small>valeurs du moment</small></h2>
+			<div id="idTables"></div>
+			<div class="row"><button type="button" class="shrink" id="refresh">↻ Actualiser presets et maps</button></div>
+		</section>
+
+		<section id="routes"></section>
+
+		<section id="trouble">
+			<h2>Un problème ?</h2>
+			<table>
+				<tr><th>Symptôme</th><th>Cause → solution</th></tr>
+				<tr><td><code>401</code></td><td>Jeton faux ou absent : recopie-le (étape 2) ; vérifie l'en-tête (<code>Bearer</code> + espace + jeton), le champ <code>"key"</code> du Body, ou que la variable Companion porte bien le nom choisi ici.</td></tr>
+				<tr><td><code>500</code> « Internal error »</td><td>Le Body n'est pas du JSON valide (guillemets droits <code>"</code>, virgules, accolades) : recopie-le depuis cette page.</td></tr>
+				<tr><td>Délai dépassé, Companion ne joint pas la régie</td><td>Companion est sur un autre PC : lance la régie avec <b>start-reseau.bat</b>, utilise l'IP du PC de la régie dans la Base URL, autorise Node.js dans le pare-feu Windows.</td></tr>
+				<tr><td><code>409</code> « rien à afficher »</td><td>L'overlay n'est pas prêt : choisis le joueur, le duel ou le texte dans la régie.</td></tr>
+				<tr><td><code>404</code> « Route inconnue »</td><td>Faute de frappe dans l'URL, ou action envoyée en GET au lieu de POST.</td></tr>
+				<tr><td>Le bouton ne s'allume pas</td><td>Le déclencheur qui interroge <code>/value/…</code> ne tourne pas, ou la feedback compare à autre chose que <code>true</code>.</td></tr>
+			</table>
+			<p class="hint">Version texte de cette page, avec des exemples curl : <b>docs/COMPANION.md</b>.</p>
+		</section>
+	</main>
+</div>
+
+<script src="../shared/kb.js"></script>
+<script src="../shared/dash.js"></script>
+<script src="../shared/overlay-list.js"></script>
+<script>
+	const API = '/valorant-tournament/api';
+	const $ = (id) => document.getElementById(id);
+	const esc = KB.esc;
+	const ITEMS = KBOList.ITEMS;
+
+	// ---------- Réglages de la page (dans le navigateur) ----------
+	const STORE = 'kb-companion-help';
+	const DEFAULTS = { base: location.origin + API, auth: 'header', tok: 'var', varName: 'kb_token', urlMode: 'relative' };
+	let cfg = { ...DEFAULTS };
+	try { cfg = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORE) || '{}') }; } catch { /* stockage indisponible : réglages par défaut */ }
+	const save = () => { try { localStorage.setItem(STORE, JSON.stringify(cfg)); } catch { /* idem */ } };
+
+	let token = '';
+	let info = null; // GET /api : presets, maps du moment
+	const MASK = '••••••••';
+	const tokVar = () => `$(internal:custom_${cfg.varName || 'kb_token'})`;
+
+	// ---------- Requête → valeurs à coller dans Companion ----------
+	// Les « : », « $ » et parenthèses restent lisibles dans l'URL (then=scene:brb, variable Companion)
+	const enc = (s) => encodeURIComponent(s).replace(/%3A/gi, ':').replace(/%24/g, '$').replace(/%28/g, '(').replace(/%29/g, ')');
+	const qs = (q) => Object.entries(q).filter(([, v]) => v !== '' && v != null).map(([k, v]) => k + '=' + enc(v)).join('&');
+	/**
+	 * { method, path, query } → { method, url, header, body } (chaînes ; null = champ vide).
+	 * real = vrai pour la copie : jeton en clair si choisi ; sinon masqué à l'affichage.
+	 */
+	function companionFields(r, real) {
+		const tok = cfg.tok === 'var' ? tokVar() : real ? token : MASK;
+		const auth = r.method === 'GET' && cfg.auth === 'body' ? 'header' : cfg.auth; // l'action GET n'a pas de corps
+		let query = { ...(r.query || {}) };
+		let header = null, body = null;
+		if (auth === 'header') header = JSON.stringify({ Authorization: 'Bearer ' + tok });
+		if (auth === 'body') {
+			const b = { key: tok };
+			for (const [k, v] of Object.entries(query)) if (v !== '' && v != null) b[k] = v;
+			body = JSON.stringify(b);
+			query = {};
+		}
+		if (auth === 'url') query.key = tok;
+		const s = qs(query);
+		const base = cfg.urlMode === 'full' ? (cfg.base || DEFAULTS.base).replace(/\/+$/, '') : '';
+		return { method: r.method, url: base + r.path + (s ? '?' + s : ''), header, body };
+	}
+	const curlOf = (r) => {
+		const f = companionFields(r, false);
+		const full = cfg.urlMode === 'full' ? f.url : (cfg.base || DEFAULTS.base).replace(/\/+$/, '') + f.url;
+		return `curl${r.method === 'POST' ? ' -X POST' : ''}${f.header ? ` -H "Authorization: Bearer $TOKEN"` : ''}${f.body ? ` -H "Content-Type: application/json" -d '${f.body.replace(MASK, '$TOKEN')}'` : ''} "${full.replace(MASK, '$TOKEN')}"`;
+	};
+
+	// ---------- Listes ----------
+	const overlayChoices = () => ITEMS.map((it) => [it.id, `${it.label}${it.fullscreen ? ' · plein écran' : ''}`]);
+	const sceneChoices = () => KBOList.SCENES.map(([id, l]) => [id, l]);
+	const mapChoices = () => ((info && info.maps) || []).map((m) => [m, m]);
+	const presetChoices = () => {
+		const out = [];
+		let casters = 0;
+		for (const p of (info && info.presets) || []) {
+			const c = /^auto:caster:(\d+)$/.exec(p.id);
+			if (c) { out.push(['caster-' + (+c[1] + 1), p.name]); casters++; } else if (p.id === 'auto:pause') out.push(['pause', p.name]);
+			else if (p.id === 'auto:next') out.push(['next', p.name]);
+			else if (!String(p.id).startsWith('auto:')) out.push([p.name, `Preset « ${p.name} »`]);
+		}
+		if (!casters) out.unshift(['caster-1', '1er intervenant'], ['caster-2', '2e intervenant']);
+		if (!out.some(([v]) => v === 'pause')) out.push(['pause', 'Pause technique'], ['next', 'Prochain match']);
+		return out;
+	};
+	const thenChoices = () => [
+		['', 'rien (none)'], ['clear', 'tout masquer, retour au jeu (clear)'],
+		...KBOList.SCENES.map(([id, l]) => ['scene:' + id, 'Scène : ' + l]),
+		...ITEMS.map((it) => ['overlay:' + it.id, 'Afficher : ' + it.label]),
+		...ITEMS.map((it) => ['hide:' + it.id, 'Masquer : ' + it.label]),
+	];
+	const VALUE_PATHS = () => [
+		['scene', 'Scène de fond en cours'], ['fullscreen', 'Plein écran à l\'antenne (vide si aucun)'],
+		...ITEMS.map((it) => ['overlays/' + it.id, `${it.label} à l'antenne ? (true / false)`]),
+		['match/scoreA', 'Score de série équipe A'], ['match/scoreB', 'Score de série équipe B'],
+		['match/teamA/tag', 'Tag équipe A'], ['match/teamB/tag', 'Tag équipe B'], ['match/teamA/name', 'Nom équipe A'], ['match/teamB/name', 'Nom équipe B'],
+		['match/map/number', 'Numéro de la map en cours'], ['match/map/name', 'Nom de la map en cours'],
+		['match/map/scoreA', 'Rounds équipe A (map en cours)'], ['match/map/scoreB', 'Rounds équipe B (map en cours)'],
+		...['left', 'center', 'right'].flatMap((s) => [['lowerThirds/' + s + '/visible', `Lower third ${s} visible ?`], ['lowerThirds/' + s + '/title', `Lower third ${s} : titre affiché`]]),
+		['transition/pending', 'Transition en attente de son action ?'], ['fullscreenStinger', 'Option transition des plein écran active ?'],
+	];
+	// Styles de transition : préréglages du panneau Maps & Transitions (Cinématique…), joués pour cette transition seulement
+	const styleChoices = () => [['', 'réglages enregistrés (défaut)'],
+		...(info && info.transitionStyles ? info.transitionStyles : [{ id: 'cinema', label: 'Cinématique' }]).map((x) => [x.id, x.label])];
+	const styleParam = { name: 'style', label: 'Style', in: 'query', choices: styleChoices };
+	const STYLE_DOC = `<p><code>style</code> (facultatif) : joue cette transition avec un préréglage du panneau <b>Maps &amp; Transitions</b> au lieu des réglages enregistrés,
+		sans les changer : <code>cinema</code> (Cinématique), <code>rapide</code>, <code>normal</code>, <code>long</code>, <code>coupure</code>, <code>explosif</code>, ou le nom d'un préréglage perso.
+		Le libellé marche aussi (<code>Cinématique</code>, <code>cinematic</code> ; accents et majuscules indifférents). Inconnu : <code>404</code>.</p>`;
+	const SIDES = [['left', 'Gauche (left)'], ['center', 'Centre (center)'], ['right', 'Droite (right)']];
+	const ACTIONS = [['toggle', 'Basculer (toggle)'], ['show', 'Afficher (show)'], ['hide', 'Masquer (hide)']];
+
+	// ---------- Les routes (même ordre et mêmes textes que docs/COMPANION.md, section 4) ----------
+	// params : { name, label, in: 'path' | 'query', choices() → [[valeur, libellé]] ; valeur '' = paramètre absent }
+	// build(v) → { path, query } ; ret = champs ajoutés à la réponse
+	const ROUTES = [
+		{ id: 'index', group: 'Lire', method: 'GET', pattern: '/', title: 'Tout ce que l\'API accepte',
+			doc: 'Overlays, scènes, emplacements de lower third, presets, types de transition et maps, avec les valeurs du moment : utile pour configurer les boutons.',
+			build: () => ({ path: '' }) },
+		{ id: 'state', group: 'Lire', method: 'GET', pattern: '/state', title: 'État du direct',
+			doc: `<table><tr><th>Champ</th><th>Contenu</th></tr>
+				<tr><td><code>scene</code></td><td>Scène de fond en cours</td></tr>
+				<tr><td><code>overlays</code></td><td>Pour chaque overlay : <code>true</code> s'il est à l'antenne</td></tr>
+				<tr><td><code>onAir</code></td><td>Liste des overlays à l'antenne</td></tr>
+				<tr><td><code>fullscreen</code></td><td>Plein écran à l'antenne, <code>null</code> si aucun</td></tr>
+				<tr><td><code>lowerThirds</code></td><td>Par emplacement : visibilité et texte réellement affiché (<code>visible</code>, <code>kicker</code>, <code>title</code>, <code>subtitle</code>)</td></tr>
+				<tr><td><code>match</code></td><td>Équipes A / B (<code>name</code>, <code>tag</code>), <code>scoreA</code> / <code>scoreB</code> de série, <code>format</code>, <code>stage</code>, <code>swap</code> (gauche / droite inversées), <code>map</code> en cours (<code>number</code>, <code>name</code>, <code>scoreA</code>, <code>scoreB</code> ; <code>null</code> si aucune)</td></tr>
+				<tr><td><code>transition</code></td><td><code>pending</code> : une transition attend de faire son action ; <code>then</code> : laquelle</td></tr>
+				<tr><td><code>fullscreenStinger</code></td><td>Option « transition des plein écran » active</td></tr></table>`,
+			build: () => ({ path: '/state' }) },
+		{ id: 'value', group: 'Lire', method: 'GET', pattern: '/value/<chemin>', title: 'Une seule valeur, en texte brut',
+			doc: 'Une valeur de <code>/state</code> en <b>texte brut</b>, pour les retours visuels des boutons. Le chemin suit les champs, séparés par <code>/</code> : <code>/value/overlays/versus</code> → <code>true</code>, <code>/value/match/scoreA</code> → <code>1</code>. Un objet est renvoyé en JSON, <code>null</code> en texte vide. Chemin inexistant : <code>404</code> (corps vide).',
+			params: [{ name: 'chemin', label: 'Valeur', in: 'path', choices: VALUE_PATHS }],
+			build: (v) => ({ path: '/value/' + v.chemin }) },
+
+		{ id: 'overlay', group: 'Overlays', method: 'POST', pattern: '/overlay/<overlay>/<show|hide|toggle>', title: 'Afficher, masquer ou basculer un overlay',
+			doc: `<ul><li><code>show</code> d'un plein écran masque les autres plein écran (comme la Régie) ; <code>exclusive=0</code> pour les laisser.</li>
+				<li><code>show</code> refuse (<code>409</code>) un overlay qui n'a rien à afficher : Stats joueur ou Duel sans joueur, lower third sans texte.</li>
+				<li><code>toggle</code> : <code>hide</code> s'il est à l'antenne, sinon <code>show</code>.</li>
+				<li><b>Transition des plein écran</b> activée : pour un plein écran, <code>show</code> / <code>hide</code> jouent le stinger (logo) et le changement est fait au point de coupe ;
+				passer d'un plein écran à un autre = un seul stinger. La réponse arrive tout de suite, avec les champs de <a href="#r-transition">/transition</a>.
+				Rien à changer : pas de stinger. <code>stinger=0</code> : tout de suite, sans stinger.</li></ul>`,
+			params: [
+				{ name: 'overlay', label: 'Overlay', in: 'path', choices: overlayChoices },
+				{ name: 'action', label: 'Action', in: 'path', choices: () => ACTIONS },
+				{ name: 'exclusive', label: 'Autres plein écran', in: 'query', choices: () => [['', 'masqués (défaut)'], ['0', 'laissés (exclusive=0)']] },
+				{ name: 'stinger', label: 'Stinger (option active)', in: 'query', choices: () => [['', 'selon l\'option (défaut)'], ['0', 'jamais (stinger=0)']] },
+			],
+			build: (v) => ({ path: `/overlay/${v.overlay}/${v.action}`, query: { exclusive: v.exclusive, stinger: v.stinger } }) },
+		{ id: 'option', group: 'Overlays', method: 'POST', pattern: '/option/fullscreen-stinger/<on|off|toggle>', title: 'Option « Transition des plein écran »',
+			doc: 'Active, désactive ou bascule l\'option (même réglage que la case de la Régie, commun à toute la régie). État : <code>fullscreenStinger</code> dans <code>/state</code>.',
+			params: [{ name: 'etat', label: 'Option', in: 'path', choices: () => [['toggle', 'Basculer (toggle)'], ['on', 'Activer (on)'], ['off', 'Désactiver (off)']] }],
+			build: (v) => ({ path: '/option/fullscreen-stinger/' + v.etat }) },
+		{ id: 'hideall', group: 'Overlays', method: 'POST', pattern: '/overlays/hide-all', title: 'Masquer tous les overlays',
+			doc: 'Masque tous les overlays ; la scène de fond ne change pas. <code>fullscreen=1</code> : seulement les plein écran (lower thirds, ticker et bug restent).',
+			params: [{ name: 'fullscreen', label: 'Quels overlays', in: 'query', choices: () => [['', 'tous (défaut)'], ['1', 'plein écran seulement (fullscreen=1)']] }],
+			build: (v) => ({ path: '/overlays/hide-all', query: { fullscreen: v.fullscreen } }) },
+		{ id: 'clear', group: 'Overlays', method: 'POST', pattern: '/clear', title: 'Tout masquer, retour au jeu',
+			doc: 'Comme <b>Tout masquer</b> de la Régie : masque tous les overlays et repasse la scène sur <code>none</code> (coupe sèche). Annule aussi l\'action d\'une transition en cours qui n\'a pas encore eu lieu.',
+			build: () => ({ path: '/clear' }) },
+
+		{ id: 'scene', group: 'Scènes', method: 'POST', pattern: '/scene/<scène>', title: 'Changer la scène de fond',
+			doc: `<ul><li><code>via=fade</code> (fondu, défaut) ou <code>via=cut</code> (coupe sèche).</li>
+				<li>Masque d'abord les overlays plein écran (ils cacheraient la scène ; <code>none</code> = retour au jeu). Lower thirds, ticker et bug restent.</li>
+				<li>Demander la scène déjà affichée ne la rejoue pas (les plein écran sont quand même masqués).</li></ul>`,
+			params: [
+				{ name: 'scene', label: 'Scène', in: 'path', choices: sceneChoices },
+				{ name: 'via', label: 'Passage', in: 'query', choices: () => [['', 'fondu (défaut)'], ['cut', 'coupe sèche (via=cut)']] },
+			],
+			build: (v) => ({ path: '/scene/' + v.scene, query: { via: v.via } }) },
+
+		{ id: 'transition', group: 'Transitions', method: 'POST', pattern: '/transition', title: 'Lancer la transition (stinger)',
+			doc: `Avec les réglages du panneau <b>Maps &amp; Transitions</b>.
+				<table><tr><th>Paramètre</th><th>Valeurs</th><th>Défaut</th></tr>
+				<tr><td><code>kind</code></td><td><code>logo</code>, <code>map</code> (logo + map), <code>replay</code></td><td><code>map</code> si <code>map</code> est donné, sinon <code>logo</code></td></tr>
+				<tr><td><code>map</code></td><td>Nom d'une map (majuscules indifférentes)</td><td>Avec <code>kind=map</code> : la map en cours du match (<code>409</code> s'il n'y en a pas)</td></tr>
+				<tr><td><code>then</code></td><td><code>none</code> · <code>clear</code> · <code>scene:&lt;scène&gt;</code> · <code>overlay:&lt;overlay&gt;</code> (afficher) · <code>hide:&lt;overlay&gt;</code> (masquer)</td><td><code>none</code></td></tr>
+				<tr><td><code>style</code></td><td><code>cinema</code> (Cinématique), <code>rapide</code>, <code>normal</code>, <code>long</code>, <code>coupure</code>, <code>explosif</code>, ou nom d'un préréglage perso</td><td>réglages enregistrés</td></tr></table>
+				<p><code>style</code> joue la transition avec ce préréglage du panneau <b>Maps &amp; Transitions</b> <b>pour cette fois seulement</b> (les réglages enregistrés ne changent pas).
+				Le libellé marche aussi (<code>Cinématique</code>, <code>cinematic</code> ; accents et majuscules indifférents). Inconnu : <code>404</code>.</p>
+				<p>L'action <code>then</code> est faite pendant que la transition couvre l'écran, comme dans la Régie. Une nouvelle transition remplace l'action d'une précédente pas encore faite.</p>
+				<p>Champs ajoutés à la réponse : <code>kind</code>, <code>map</code>, <code>then</code>, <code>style</code> (<code>null</code> sans style), <code>duration</code> (ms), <code>actionAt</code> (moment de l'action, ms, ou <code>null</code>).</p>`,
+			params: [
+				{ name: 'kind', label: 'Type', in: 'query', choices: () => [['', 'automatique (défaut)'], ['logo', 'Logo seul'], ['map', 'Logo + map'], ['replay', 'Replay']] },
+				{ name: 'map', label: 'Map', in: 'query', choices: () => [['', 'map en cours (défaut)'], ...mapChoices()] },
+				{ name: 'then', label: 'Pendant la transition', in: 'query', choices: thenChoices },
+				styleParam,
+			],
+			build: (v) => ({ path: '/transition', query: { kind: v.kind, map: v.map, then: v.then, style: v.style } }) },
+		{ id: 'replay-start', group: 'Transitions', method: 'POST', pattern: '/replay/start', title: 'Ralenti : transition replay + bug REPLAY',
+			doc: 'Comme <b>▶ Replay + bug</b> de la Régie : <code>/transition?kind=replay&amp;then=overlay:replay-bug</code>. Le bug déjà affiché n\'est pas une erreur. Mêmes champs de réponse que <code>/transition</code>.' + STYLE_DOC,
+			params: [styleParam],
+			build: (v) => ({ path: '/replay/start', query: { style: v.style } }) },
+		{ id: 'replay-end', group: 'Transitions', method: 'POST', pattern: '/replay/end', title: 'Fin du ralenti : bug masqué puis transition replay',
+			doc: 'Comme <b>■ Fin du replay</b> : le bug disparaît d\'abord, puis la transition replay est jouée une fois sa sortie finie (0,4 s ; champ <code>stingerAt</code> de la réponse). <code>/clear</code> pendant cette attente annule la transition. Bug déjà masqué : transition tout de suite.' + STYLE_DOC,
+			params: [styleParam],
+			build: (v) => ({ path: '/replay/end', query: { style: v.style } }) },
+		{ id: 'cancel', group: 'Transitions', method: 'POST', pattern: '/transition/cancel', title: 'Annuler l\'action prévue',
+			doc: 'Annule l\'action prévue par la dernière transition si elle n\'a pas encore eu lieu (la transition elle-même continue). Champ <code>cancelled: false</code> si rien n\'était en attente.',
+			build: () => ({ path: '/transition/cancel' }) },
+
+		{ id: 'lt', group: 'Lower thirds', method: 'POST', pattern: '/lower-third/<côté>/<show|hide|toggle>', title: 'Afficher, masquer ou basculer un lower third',
+			doc: 'Avec son contenu actuel (réglé dans la régie). Même chose que <code>/overlay/lower-third-&lt;côté&gt;/…</code>. Le masquage automatique (durée réglée dans le lower third) s\'applique.',
+			params: [{ name: 'side', label: 'Emplacement', in: 'path', choices: () => SIDES }, { name: 'action', label: 'Action', in: 'path', choices: () => ACTIONS }],
+			build: (v) => ({ path: `/lower-third/${v.side}/${v.action}` }) },
+		{ id: 'lt-preset', group: 'Lower thirds', method: 'POST', pattern: '/lower-third/<côté>/preset/<preset>', title: 'Afficher un preset',
+			doc: `Charge un preset dans l'emplacement et l'affiche (comme un clic sur un preset du panneau Lower thirds) ; déjà affiché : le texte change en place.
+				Le preset est cherché dans cet ordre : identifiant exact, raccourcis <code>caster-1</code>, <code>caster-2</code>… (intervenants dans l'ordre host / casters),
+				<code>pause</code> (pause technique), <code>next</code> (prochain match), puis <b>nom</b> d'un preset enregistré (majuscules indifférentes).
+				<span class="warn">Un preset renommé dans la régie casse les boutons qui utilisent son ancien nom.</span>`,
+			params: [{ name: 'side', label: 'Emplacement', in: 'path', choices: () => SIDES }, { name: 'preset', label: 'Preset', in: 'path', choices: presetChoices }],
+			build: (v) => ({ path: `/lower-third/${v.side}/preset/${encodeURIComponent(v.preset)}` }) },
+
+		{ id: 'score', group: 'Score', method: 'POST', pattern: '/score/<A|B>/<plus|minus>', title: 'Score de la série',
+			doc: `Comme les boutons +1 / −1 du panneau <b>Live</b> :
+				<ul><li><code>plus</code> : la map en cours (ou la première sans vainqueur) est gagnée par l'équipe, la suivante passe « en cours ». <code>409</code> si la série est terminée.</li>
+				<li><code>minus</code> : annule la dernière map gagnée par l'équipe. <code>409</code> s'il n'y en a pas.</li></ul>
+				<code>A</code> / <code>B</code> sont les équipes du match (pas la gauche / droite à l'écran). Champs ajoutés : <code>A</code>, <code>B</code> (score après l'action), <code>currentMap</code> (index à partir de 0).`,
+			params: [{ name: 'team', label: 'Équipe', in: 'path', choices: () => [['A', 'Équipe A'], ['B', 'Équipe B']] }, { name: 'dir', label: 'Sens', in: 'path', choices: () => [['plus', '+1 (plus)'], ['minus', '−1 (minus)']] }],
+			build: (v) => ({ path: `/score/${v.team}/${v.dir}` }) },
+	];
+	const route = (id) => ROUTES.find((r) => r.id === id);
+
+	// ---------- Boutons prêts à l'emploi : [groupe, libellé, route, valeurs] ----------
+	const QUICK = () => [
+		...ITEMS.filter((it) => !it.id.startsWith('lower-third')).map((it) => [it.fullscreen ? 'Plein écran' : 'En jeu', it.label + ' (afficher / masquer)', 'overlay', { overlay: it.id, action: 'toggle' }]),
+		...SIDES.map(([s, l]) => ['Lower thirds', `Lower third ${l.split(' ')[0].toLowerCase()} (afficher / masquer)`, 'lt', { side: s, action: 'toggle' }]),
+		['Lower thirds', '1er intervenant à gauche', 'lt-preset', { side: 'left', preset: 'caster-1' }],
+		['Lower thirds', '2e intervenant à droite', 'lt-preset', { side: 'right', preset: 'caster-2' }],
+		['Lower thirds', 'Pause technique au centre', 'lt-preset', { side: 'center', preset: 'pause' }],
+		['Lower thirds', 'Prochain match au centre', 'lt-preset', { side: 'center', preset: 'next' }],
+		...KBOList.SCENES.map(([id, l]) => ['Scènes', id === 'none' ? 'Retour au jeu' : 'Scène : ' + l, 'scene', { scene: id }]),
+		['Transitions', 'Transition logo', 'transition', {}],
+		['Transitions', 'Transition + map en cours', 'transition', { kind: 'map' }],
+		['Transitions', 'Transition + map puis Intro de map', 'transition', { kind: 'map', then: 'overlay:map-intro' }],
+		['Transitions', 'Transition cinématique (logo)', 'transition', { style: 'cinema' }],
+		['Transitions', 'Transition cinématique + map puis Intro de map', 'transition', { kind: 'map', then: 'overlay:map-intro', style: 'cinema' }],
+		['Transitions', 'Transition puis Pause', 'transition', { then: 'scene:brb' }],
+		['Transitions', 'Transition puis retour au jeu', 'transition', { then: 'clear' }],
+		['Transitions', 'Transition replay seule', 'transition', { kind: 'replay' }],
+		['Transitions', 'Ralenti : replay + bug REPLAY', 'replay-start', {}],
+		['Transitions', 'Fin du ralenti : bug masqué + replay', 'replay-end', {}],
+		['Score', 'Score +1 équipe A', 'score', { team: 'A', dir: 'plus' }],
+		['Score', 'Score +1 équipe B', 'score', { team: 'B', dir: 'plus' }],
+		['Score', 'Score −1 équipe A', 'score', { team: 'A', dir: 'minus' }],
+		['Score', 'Score −1 équipe B', 'score', { team: 'B', dir: 'minus' }],
+		['Général', 'Tout masquer, retour au jeu', 'clear', {}],
+		['Général', 'Masquer les plein écran', 'hideall', { fullscreen: '1' }],
+		['Général', 'Option : transition des plein écran (bascule)', 'option', { etat: 'toggle' }],
+	];
+
+	// Valeurs d'une route : celles données, sinon le 1er choix de chaque paramètre
+	const values = {};
+	function valuesOf(r, given) {
+		const v = {};
+		for (const p of r.params || []) {
+			const ch = p.choices();
+			const want = given && given[p.name] !== undefined ? given[p.name] : values[r.id] && values[r.id][p.name];
+			v[p.name] = want !== undefined && (ch.some(([x]) => x === want) || p.name === 'preset') ? want : (ch[0] || [''])[0];
+		}
+		return v;
+	}
+	const req = (r, v) => { const b = r.build(v); return { method: r.method, path: b.path, query: b.query || {} }; };
+
+	// ---------- Rendu ----------
+	const fieldRow = (label, val, key) => `<div class="cp"><span>${label}</span>${val == null ? '<code class="none">vide</code>' : `<code>${esc(val)}</code>`}`
+		+ `<button type="button" data-cp="${key}"${val == null ? ' disabled' : ''}>Copier</button></div>`;
+	function fieldsHtml(r) {
+		const f = companionFields(r, false);
+		return `<div class="cp"><span>Action</span><code>${f.method === 'GET' ? 'GET' : 'POST'}</code><span></span></div>`
+			+ fieldRow('URL', f.url, 'url') + fieldRow(f.method === 'GET' ? 'Header' : 'Header input', f.header, 'header')
+			+ (f.method === 'GET' ? '' : fieldRow('Body', f.body, 'body'));
+	}
+	function renderQuick() {
+		const q = $('qSearch').value.trim().toLowerCase();
+		let html = '', group = null, n = 0;
+		QUICK().forEach(([g, label, rid, v], i) => {
+			const r = route(rid);
+			const rq = req(r, valuesOf(r, v));
+			if (q && !(g + ' ' + label + ' ' + rq.path + ' ' + JSON.stringify(rq.query)).toLowerCase().includes(q)) return;
+			if (g !== group) { html += `<div class="qgroup">${esc(g)}</div>`; group = g; }
+			const f = companionFields(rq, false);
+			n++;
+			html += `<div class="qrow" data-q="${i}"><div class="lbl">${esc(label)}</div><code title="${esc(f.url)}">${esc(f.url)}</code><div class="acts">`
+				+ `<button type="button" data-cp="url">URL</button>`
+				+ `<button type="button" data-cp="header"${f.header ? '' : ' disabled'} title="Header input">En-tête</button>`
+				+ `<button type="button" data-cp="body"${f.body ? '' : ' disabled'} title="Body">Corps</button>`
+				+ `<button type="button" data-open="${i}" title="Ouvrir dans la référence (paramètres, test)">⚙</button></div></div>`;
+		});
+		$('quickList').innerHTML = html || '<p class="empty">Aucun bouton ne correspond.</p>';
+		$('qCount').textContent = q ? `${n} bouton(s)` : '';
+	}
+	function quickReq(i) { const [, , rid, v] = QUICK()[i]; const r = route(rid); return req(r, valuesOf(r, v)); }
+
+	function renderRoutes() {
+		let html = '', group = null, nav = '';
+		for (const r of ROUTES) {
+			if (r.group !== group) { html += `<h2>Référence · ${esc(r.group)}</h2>`; group = r.group; nav += `<div class="ttl" style="margin-left:8px;font-size:10px">${esc(r.group)}</div>`; }
+			nav += `<a class="sub" href="#r-${r.id}">${esc(r.pattern)}</a>`;
+			html += `<div class="route" id="r-${r.id}" data-r="${r.id}">
+				<h4><span class="method ${r.method}">${r.method}</span>${esc(r.pattern)} <em>${esc(r.title)}</em></h4>
+				<div class="doc">${r.doc}</div>
+				<div class="build"><div class="bt">Construire le bouton</div>
+					${r.params && r.params.length ? `<div class="params">${r.params.map((p) => `<div><label for="p-${r.id}-${p.name}">${esc(p.label)}${p.in === 'query' ? ` <code>${p.name}</code>` : ''}</label><select id="p-${r.id}-${p.name}" data-p="${p.name}"></select></div>`).join('')}</div>` : ''}
+					<div class="fields"></div>
+					<div class="test"><button type="button" data-test>${r.method === 'GET' ? '▶ Tester' : '▶ Tester (agit sur le direct)'}</button>
+						<button type="button" data-curl>Copier en curl</button><span class="st"></span></div>
+					<pre class="out"></pre>
+				</div></div>`;
+		}
+		$('routes').innerHTML = html;
+		$('navRoutes').innerHTML = nav;
+		for (const r of ROUTES) fillRoute(r);
+	}
+	// Remplit les menus (en gardant la sélection) et les champs d'une route
+	function fillRoute(r) {
+		const card = $('r-' + r.id);
+		const v = valuesOf(r);
+		for (const p of r.params || []) {
+			const sel = card.querySelector(`[data-p="${p.name}"]`);
+			KBD.fillSelect(sel, p.choices().map(([x, l]) => `<option value="${esc(x)}">${esc(l)}</option>`).join(''), v[p.name]);
+			sel.value = v[p.name];
+		}
+		card.querySelector('.fields').innerHTML = fieldsHtml(req(r, v));
+	}
+	function readRoute(r) {
+		const card = $('r-' + r.id);
+		values[r.id] = Object.fromEntries((r.params || []).map((p) => [p.name, card.querySelector(`[data-p="${p.name}"]`).value]));
+		return req(r, values[r.id]);
+	}
+
+	function renderIds() {
+		const presets = (info && info.presets) || [];
+		$('idTables').innerHTML = `
+			<div class="flabel">Overlays <small>(&lt;overlay&gt;)</small></div>
+			<table><tr><th>Identifiant</th><th>Overlay</th><th>Plein écran</th></tr>
+				${ITEMS.map((it) => `<tr><td><code>${it.id}</code></td><td>${esc(it.label)}</td><td>${it.fullscreen ? 'oui' : 'non'}</td></tr>`).join('')}</table>
+			<div class="flabel">Scènes de fond <small>(&lt;scène&gt;)</small></div>
+			<p>${KBOList.SCENES.map(([id, l]) => `<code>${id}</code> ${esc(l)}`).join(' · ')}</p>
+			<div class="flabel">Emplacements de lower third <small>(&lt;côté&gt;)</small></div>
+			<p><code>left</code> · <code>center</code> · <code>right</code></p>
+			<div class="flabel">Presets de lower third <small>(&lt;preset&gt;)</small></div>
+			${presets.length ? `<table><tr><th>À mettre dans l'URL</th><th>Preset</th></tr>${presetChoices().map(([x, l]) => `<tr><td><code>${esc(encodeURIComponent(x))}</code></td><td>${esc(l)}</td></tr>`).join('')}</table>`
+		: '<p class="empty">Liste indisponible (API injoignable).</p>'}
+			<div class="flabel">Styles de transition <small>(paramètre style)</small></div>
+			<p>${styleChoices().slice(1).map(([x, l]) => `<code>${esc(x)}</code> ${esc(l)}`).join(' · ')}</p>
+			<div class="flabel">Maps <small>(paramètre map)</small></div>
+			<p>${mapChoices().map(([m]) => `<code>${esc(m)}</code>`).join(' ') || '<span class="empty">Liste indisponible.</span>'}</p>`;
+	}
+
+	function renderSetup() {
+		$('base').value = cfg.base;
+		$('varName').value = cfg.varName;
+		document.querySelectorAll('input[name=auth]').forEach((x) => { x.checked = x.value === cfg.auth; });
+		document.querySelectorAll('input[name=tok]').forEach((x) => { x.checked = x.value === cfg.tok; });
+		document.querySelectorAll('input[name=urlMode]').forEach((x) => { x.checked = x.value === cfg.urlMode; });
+		$('varName').disabled = cfg.tok !== 'var';
+		$('cpBase').textContent = cfg.base;
+		document.querySelectorAll('.vname').forEach((x) => { x.textContent = cfg.varName; });
+		$('stepVar').classList.toggle('hidden', cfg.tok !== 'var');
+		$('stepRaw').classList.toggle('hidden', cfg.tok === 'var');
+		const local = /\/\/(localhost|127\.0\.0\.1)[:/]/.test(cfg.base);
+		$('baseHint').textContent = local
+			? 'Companion sur un autre PC : lance la régie avec start-reseau.bat et remplace localhost par l\'adresse de ce PC (ou ouvre cette page par cette adresse).'
+			: 'Adresse vue par ce navigateur. Companion doit pouvoir la joindre (même réseau, pare-feu ouvert).';
+		$('baseStepHint').textContent = cfg.urlMode === 'full' ? 'Réglage « Adresse complète » : la Base URL peut rester vide, chaque bouton porte l\'adresse entière.' : '';
+	}
+	function renderAll() { renderSetup(); renderQuick(); for (const r of ROUTES) fillRoute(r); }
+
+	// ---------- Copie, test ----------
+	// Copie le champ `key` (url, header, body) de la requête ; le bouton affiche le résultat un instant
+	function copyField(rq, key, btn) {
+		const v = companionFields(rq, true)[key];
+		if (v == null) return;
+		const label = btn.dataset.label || (btn.dataset.label = btn.textContent);
+		const done = (t) => { btn.textContent = t; clearTimeout(btn._t); btn._t = setTimeout(() => (btn.textContent = label), 1400); };
+		if (cfg.tok === 'raw' && !token) return done('Jeton absent');
+		KBD.copy(v).then((ok) => done(ok ? 'Copié ✓' : 'Échec'));
+	}
+	async function call(rq) {
+		const s = qs(rq.query);
+		const res = await fetch(API + rq.path + (s ? '?' + s : ''), { method: rq.method, headers: { Authorization: 'Bearer ' + token } });
+		const text = await res.text();
+		return { status: res.status, text };
+	}
+	async function test(r, card) {
+		const st = card.querySelector('.st'), out = card.querySelector('pre.out');
+		st.className = 'st'; st.textContent = 'Envoi…';
+		try {
+			const { status, text } = await call(readRoute(r));
+			let shown = text;
+			try { const j = JSON.parse(text); if (j.state && r.method === 'POST') j.state = '… (état complet : GET /state)'; shown = JSON.stringify(j, null, 2); } catch { /* texte brut (/value) */ }
+			st.className = 'st ' + (status < 300 ? 'ok' : 'err');
+			st.textContent = `HTTP ${status}${text === '' ? ' · réponse vide' : ''}`;
+			out.textContent = shown;
+		} catch (e) {
+			st.className = 'st err'; st.textContent = 'Échec : ' + e.message; out.textContent = '';
+		}
+	}
+
+	// ---------- Événements ----------
+	const setCfg = (patch) => { cfg = { ...cfg, ...patch }; save(); renderAll(); };
+	$('base').onchange = () => setCfg({ base: $('base').value.trim() || DEFAULTS.base });
+	$('varName').onchange = () => setCfg({ varName: $('varName').value.trim().replace(/[^\w]/g, '_') || DEFAULTS.varName });
+	document.querySelectorAll('.settings input[type=radio]').forEach((x) => { x.onchange = () => setCfg({ [x.name]: x.value }); });
+	$('qSearch').oninput = renderQuick;
+
+	document.querySelector('#setup').addEventListener('click', (e) => {
+		const k = e.target.dataset.copy;
+		if (!k) return;
+		if (k === 'token' && !token) return;
+		const v = { base: cfg.base, varName: cfg.varName, token }[k];
+		KBD.copy(v).then((ok) => { e.target.textContent = ok ? 'Copié ✓' : 'Échec'; setTimeout(() => (e.target.textContent = 'Copier'), 1400); });
+	});
+	$('quickList').addEventListener('click', (e) => {
+		const row = e.target.closest('.qrow');
+		if (!row) return;
+		const i = +row.dataset.q;
+		if (e.target.dataset.cp) return copyField(quickReq(i), e.target.dataset.cp, e.target);
+		if (e.target.dataset.open !== undefined) {
+			const [, , rid, v] = QUICK()[i];
+			const r = route(rid);
+			values[rid] = valuesOf(r, v);
+			fillRoute(r);
+			const card = $('r-' + rid);
+			card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
+		}
+	});
+	$('routes').addEventListener('change', (e) => {
+		const card = e.target.closest('.route');
+		if (!card || !e.target.dataset.p) return;
+		const r = route(card.dataset.r);
+		card.querySelector('.fields').innerHTML = fieldsHtml(readRoute(r));
+	});
+	$('routes').addEventListener('click', (e) => {
+		const card = e.target.closest('.route');
+		if (!card) return;
+		const r = route(card.dataset.r);
+		const st = card.querySelector('.st');
+		if (e.target.dataset.cp) {
+			copyField(readRoute(r), e.target.dataset.cp, e.target);
+		} else if (e.target.dataset.curl !== undefined) {
+			KBD.copy(curlOf(readRoute(r))).then((ok) => { st.className = 'st' + (ok ? ' ok' : ' err'); st.textContent = ok ? '✔ Commande copiée (remplace $TOKEN par le jeton)' : 'Copie impossible'; });
+		} else if (e.target.dataset.test !== undefined) {
+			if (!token) { st.className = 'st err'; st.textContent = 'Jeton indisponible'; return; }
+			if (r.method === 'GET') test(r, card);
+			else KBD.arm(e.target, () => test(r, card), { label: 'Confirmer : envoyer au direct ?' });
+		}
+	});
+
+	// ---------- Données du serveur ----------
+	async function loadInfo() {
+		try {
+			const res = await fetch(API, { headers: { Authorization: 'Bearer ' + token } });
+			if (!res.ok) throw new Error('HTTP ' + res.status);
+			info = await res.json();
+			$('apiDot').classList.add('on');
+			$('apiStatus').textContent = `API joignable : ${info.overlays.length} overlays, ${info.presets.length} presets, ${info.maps.length} maps.`;
+		} catch (e) {
+			$('apiDot').classList.remove('on');
+			$('apiStatus').textContent = 'API injoignable (' + e.message + ') : voir le journal de la régie.';
+		}
+		renderIds();
+		renderAll();
+	}
+	$('refresh').onclick = loadInfo;
+
+	renderSetup();
+	renderRoutes();
+	renderQuick();
+	renderIds();
+	nodecg.sendMessage('companion:info')
+		.then((r) => { token = r.token || ''; return loadInfo(); })
+		.catch((err) => { $('apiStatus').textContent = 'API Companion indisponible : ' + (err && err.message ? err.message : err); });
+</script>
+</body>
+</html>

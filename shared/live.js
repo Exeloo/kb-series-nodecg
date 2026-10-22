@@ -17,6 +17,9 @@
 
 	// Label d'une moitié de l'écran 50/50
 	// mode : none | text | team | player ; team : 'A' | 'B' (équipes du match) ou id d'équipe ; riotId : joueur (KB.player)
+	// Durée de la sortie du bug Replay (graphics/replay-bug.html : animation bugOut .35 s + marge). « Fin du replay » masque
+	// le bug, attend cette durée, puis joue le stinger : la sortie du bug ne doit pas se voir après la transition.
+	LIVE.REPLAY_BUG_OUT_MS = 400;
 	LIVE.camLabelDefault = (team) => ({ mode: 'team', text: '', sub: '', team, riotId: '' });
 
 	LIVE.defaults = {
@@ -31,6 +34,8 @@
 				'Finales en présentiel au Campus KB — Le Kremlin-Bicêtre',
 			],
 		},
+		// Bug « REPLAY » en haut à droite (graphics/replay-bug.html)
+		liveReplayBug: { visible: false },
 		// Écran 50/50 = scène dédiée (pas de "visible") ; info = bandeau match en cours en bas au centre
 		liveDualCam: { left: LIVE.camLabelDefault('A'), right: LIVE.camLabelDefault('B'), info: true, infoText: '' },
 	};
@@ -104,11 +109,12 @@
 
 	/**
 	 * Trous caméra de graphics/dual-cam.html, en px sur 1920×1080 (coins coupés haut-gauche / bas-droit, coupe = cut px).
-	 * Chaque trou occupe une moitié d'écran (ratio ~1:1 : la webcam est recadrée dans OBS).
+	 * Chaque trou occupe une moitié d'écran au format 16:9 (896×504 : une caméra 1080p réduite à 46,67 % le remplit sans recadrage).
+	 * Trous et labels forment un bloc centré verticalement ; labels, bandeau et séparation se placent d'après ces valeurs.
 	 */
 	LIVE.dualFrames = [
-		{ x: 40, y: 40, w: 900, h: 860, cut: 30 },
-		{ x: 980, y: 40, w: 900, h: 860, cut: 30 },
+		{ x: 40, y: 220, w: 896, h: 504, cut: 30 },
+		{ x: 984, y: 220, w: 896, h: 504, cut: 30 },
 	];
 
 	if (typeof module !== 'undefined' && module.exports) module.exports = LIVE;

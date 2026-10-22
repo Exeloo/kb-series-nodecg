@@ -6,7 +6,8 @@
 	<!--
 		Données : exporter / importer, sauvegardes automatiques, données de test, réinitialisation, réglages techniques.
 		Écrit : kbAutoReload. Routes : GET data-export[?files=0], POST data-import.
-		Messages : data:backups, data:restore, data:testData, data:clearAll, valorantData:refresh (extension/data-*.js, test-data.js, state.js).
+		Messages : data:backups, data:restore, data:testData, data:clearAll, valorantData:refresh (extension/data-*.js, test-data.js, state.js),
+		companion:info, companion:newToken (extension/companion.js).
 	-->
 	<link rel="stylesheet" href="../shared/dashboard.css">
 	<style>
@@ -80,6 +81,19 @@
 		<div class="row"><button type="button" id="vdRefresh">↻ Mettre à jour les maps et agents Valorant</button></div>
 		<div class="hint" id="vdInfo"></div>
 		<div class="msg box" id="vdMsg"></div>
+	</div>
+
+	<h3>6. Bitfocus Companion</h3>
+	<div class="card">
+		<div class="hint">Pour piloter la régie depuis un Stream Deck avec Companion (module « Generic: HTTP Requests »).
+			Chaque requête doit envoyer l'en-tête <code>Authorization: Bearer &lt;jeton&gt;</code>. Boutons prêts à copier et référence de l'API : onglet <b>Companion</b> du tableau de bord.</div>
+		<label for="cpBase">Adresse de base des requêtes</label>
+		<div class="row"><input id="cpBase" readonly><button type="button" class="shrink" id="cpCopyBase">Copier</button></div>
+		<label for="cpToken">Jeton secret (ne le partage pas : il donne la main sur le direct)</label>
+		<div class="row"><input id="cpToken" type="password" readonly><button type="button" class="shrink" id="cpShow">Voir</button><button type="button" class="shrink" id="cpCopy">Copier</button></div>
+		<div class="hint">Companion sur un autre PC : lance la régie avec <b>start-reseau.bat</b> et remplace <code>localhost</code> par l'adresse de ce PC.</div>
+		<div class="row"><button type="button" id="cpNew">Créer un nouveau jeton</button></div>
+		<div class="msg box" id="cpMsg"></div>
 	</div>
 
 	<script src="../shared/kb.js"></script>
@@ -208,6 +222,26 @@
 				.finally(() => { $('vdRefresh').disabled = false; });
 		};
 		KB.watch(['valorantData'], renderValorantData);
+
+		// ---------- 6. Bitfocus Companion ----------
+		$('cpBase').value = location.origin + '/valorant-tournament/api';
+		const showToken = (t) => { $('cpToken').value = t; };
+		nodecg.sendMessage('companion:info')
+			.then((r) => { showToken(r.token); if (r.fromEnv) { $('cpNew').disabled = true; $('cpNew').title = 'Jeton fixé par la variable COMPANION_TOKEN'; } })
+			.catch((err) => KBD.flash('cpMsg', 'API Companion indisponible : ' + errText(err), 'err', 0));
+		$('cpShow').onclick = () => {
+			const hidden = $('cpToken').type === 'password';
+			$('cpToken').type = hidden ? 'text' : 'password';
+			$('cpShow').textContent = hidden ? 'Cacher' : 'Voir';
+		};
+		const copyBtn = (btn, get) => { $(btn).onclick = () => KBD.copy(get()).then((ok) => KBD.flash('cpMsg', ok ? '✔ Copié' : 'Copie impossible : sélectionne le texte', ok ? 'ok' : 'err')); };
+		copyBtn('cpCopyBase', () => $('cpBase').value);
+		copyBtn('cpCopy', () => $('cpToken').value);
+		KBD.confirm('cpNew', () => {
+			nodecg.sendMessage('companion:newToken')
+				.then((r) => { showToken(r.token); KBD.flash('cpMsg', '✔ Nouveau jeton créé : remplace-le dans Companion (l\'ancien ne marche plus).', 'ok', 0); })
+				.catch((err) => KBD.flash('cpMsg', errText(err), 'err', 0));
+		}, { label: 'Confirmer : l\'ancien jeton ne marchera plus ?' });
 	</script>
 </body>
 </html>

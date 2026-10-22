@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr" class="kb-graphic">
+<head>
+<meta charset="utf-8">
+<title>KB SERIES · Bug Replay</title>
+<!--
+	Bug « REPLAY » en haut à droite (transparent), à afficher pendant un ralenti, par-dessus le jeu.
+	Replicant lu : liveReplayBug { visible } (défaut : LIVE.defaults.liveReplayBug, shared/live.js).
+	Piloté par la Régie (ligne « Bug Replay », via KBO) et l'API Companion (overlay replay-bug).
+-->
+<link rel="stylesheet" href="../shared/theme.css">
+<style>
+	/* Coin haut droit, dans la marge de sécurité de 64 px ; 64 px de haut */
+	#bug { position: absolute; top: 64px; right: 64px; height: 64px; display: flex; visibility: hidden; clip-path: inset(0 0 0 100%); }
+	#bug.kb-in { animation: bugIn .6s var(--kb-ease-out) forwards; }
+	#bug.kb-out { animation: bugOut .35s var(--kb-ease-inout) forwards; }
+	@keyframes bugIn { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0 0 -8px 0); } }
+	@keyframes bugOut { from { clip-path: inset(0 0 -8px 0); } to { clip-path: inset(0 0 -8px 100%); } }
+
+	/* Rouge (--kb-red) comme le LIVE : le bug signale ce qui passe à l'écran. --red-hi = haut du dégradé */
+	#bug { --red-hi: #ff7a84; }
+	/* Bloc rouge : chevrons « retour arrière », coin gauche coupé en diagonale */
+	.ic { position: relative; flex: 0 0 auto; width: 84px; display: flex; align-items: center; justify-content: center; gap: 2px; padding-left: 10px;
+		background: linear-gradient(180deg, var(--red-hi), var(--kb-red)); clip-path: polygon(22px 0, 100% 0, 100% 100%, 0 100%); }
+	.ic i { width: 16px; height: 22px; background: #fff; clip-path: polygon(0 50%, 100% 0, 100% 100%); opacity: .45; }
+	/* Les chevrons s'allument de droite à gauche, en boucle : le sens du retour arrière */
+	.ic i:nth-child(2) { animation: rw 2.4s ease-in-out 1s infinite; }
+	.ic i:nth-child(1) { animation: rw 2.4s ease-in-out 1.18s infinite; }
+	@keyframes rw { 0%, 55%, 100% { opacity: .45; } 20% { opacity: 1; } }
+	#bug.kb-in .ic i { animation-name: rw, chevIn; animation-duration: 2.4s, .55s; animation-delay: 1s, .25s; animation-iteration-count: infinite, 1; animation-fill-mode: none, both; }
+	#bug.kb-in .ic i:nth-child(1) { animation-delay: 1.18s, .32s; }
+	@keyframes chevIn { from { transform: translateX(22px); } to { transform: none; } }
+
+	/* Panneau nuit : REPLAY + signature, coin bas droit coupé (langage Valorant) */
+	.tx { position: relative; flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center; padding: 0 30px 0 20px; overflow: hidden;
+		background: linear-gradient(180deg, rgba(17, 24, 69, .96), rgba(4, 6, 26, .97));
+		clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--kb-cut)), calc(100% - var(--kb-cut)) 100%, 0 100%); }
+	.tx b { font: 400 36px/1 var(--kb-display); letter-spacing: .08em; text-transform: uppercase; color: var(--kb-text); }
+	.tx small { font: 600 11px/1 var(--kb-ui); letter-spacing: .34em; text-transform: uppercase; color: var(--red-hi); margin-top: 5px; }
+	/* Reflet discret qui traverse le panneau de temps en temps */
+	.tx::after { content: ''; position: absolute; top: 0; bottom: 0; width: 70px; left: 0; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .22), transparent);
+		transform: translateX(-90px) skewX(-20deg); animation: shine 7s ease-in-out 2s infinite; }
+	@keyframes shine { 0% { transform: translateX(-90px) skewX(-20deg); } 22%, 100% { transform: translateX(260px) skewX(-20deg); } }
+	#bug.kb-in .tx > * { animation: kb-from-right .55s var(--kb-ease-out) .2s both; }
+	#bug.kb-in .tx small { animation-delay: .3s; }
+
+	/* Filet rouge sous le bug, parcouru par une lumière */
+	.rail { position: absolute; left: 22px; right: 0; bottom: -4px; height: 2px; overflow: hidden;
+		background: linear-gradient(90deg, transparent, var(--kb-red) 18%, var(--red-hi) 60%, var(--kb-red)); box-shadow: 0 0 8px rgba(255, 70, 85, .45); }
+	.rail::after { content: ''; position: absolute; top: -1px; width: 90px; height: 4px; left: 0; background: radial-gradient(ellipse at center, #fff 0%, rgba(255, 200, 205, .8) 25%, transparent 70%);
+		transform: translateX(-100px); animation: run 5s linear 1.4s infinite; }
+	@keyframes run { 0% { transform: translateX(-100px); } 45%, 100% { transform: translateX(320px); } }
+</style>
+</head>
+<body>
+	<div id="bug">
+		<div class="ic"><i></i><i></i></div>
+		<div class="tx"><b>Replay</b><small>KB Series</small></div>
+		<div class="rail"></div>
+	</div>
+
+<script src="../shared/kb.js"></script>
+<script src="../shared/live.js"></script>
+<script>
+	const rep = nodecg.Replicant('liveReplayBug', { defaultValue: KB.clone(LIVE.defaults.liveReplayBug) });
+	const pres = KB.presence(KB.$('#bug'), LIVE.REPLAY_BUG_OUT_MS);
+	KB.watch([rep], () => { if (rep.value && rep.value.visible) { if (!pres.visible) pres.show(); } else pres.hide(); });
+</script>
+</body>
+</html>

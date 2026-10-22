@@ -169,6 +169,7 @@
 			level: prof && prof.level,
 			season: prof && prof.season,
 			stats, agents, maps: (prof && prof.maps) || [],
+			roles: (prof && prof.roles) || [], // stats par rôle tracker.gg (extension/tracker.js), plus joué d'abord
 			hasTracker: !!prof,
 			// Vrai seulement si une saisie manuelle non vide existe (le panneau enregistre des champs vides)
 			manual: Object.values(ov.stats || {}).some((v) => v !== '' && v != null) || (ov.agents || []).some(Boolean)

@@ -21,7 +21,7 @@ const GROUPS = {
 	schedule: ['schedule', 'countdown'],
 	bracket: ['bracket'],
 	texts: ['scenesTexts', 'scenesRotation', 'tournament', 'casters', 'liveTicker'],
-	overlays: ['liveLowerThird', 'matchGraphics', 'mapsGraphics', 'playerStatsGraphic', 'playerDuel', 'bracketGraphics', 'streamScene', 'liveDualCam'],
+	overlays: ['liveLowerThird', 'matchGraphics', 'mapsGraphics', 'playerStatsGraphic', 'playerDuel', 'bracketGraphics', 'streamScene', 'liveDualCam', 'liveReplayBug'],
 };
 
 module.exports = function (nodecg, listen, backup) {

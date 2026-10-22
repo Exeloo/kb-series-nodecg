@@ -6,7 +6,7 @@
 	<!--
 		Panneau « Stats Joueur » : choisit le joueur de l'overlay Stats joueur et les deux joueurs du Duel, et les affiche.
 		Les joueurs (fiche, photo, import tracker.gg) se gèrent dans le panneau « Équipes & Joueurs ».
-		Écrit : playerStatsGraphic { playerId, agentId, visible }, playerDuel { left, right, visible },
+		Écrit : playerStatsGraphic { playerId, agentId, view, visible }, playerDuel { left, right, visible },
 		playerProfiles (suppression d'un profil) ; visibilité via KBO (un seul plein écran à la fois si l'option est active).
 	-->
 	<link rel="stylesheet" href="../shared/dashboard.css">
@@ -45,6 +45,9 @@
 		</div>
 		<label class="flabel" for="agent">Agent mis en avant (devant, puis les 2 plus joués derrière)</label>
 		<select id="agent"></select>
+		<label class="flabel" for="view">Vue</label>
+		<select id="view"></select>
+		<div class="hint" id="viewHint" hidden></div>
 		<div class="hint">Photo, pseudo, rang et stats saisis à la main : fiche du joueur dans le panneau <b>Équipes &amp; Joueurs</b>.</div>
 		<div class="row" id="statsOv"></div>
 		<div class="status"><span class="dot" id="dot"></span><span id="statusText"></span></div>
@@ -74,6 +77,7 @@
 	<script src="../shared/kb.js"></script>
 	<script src="../shared/player.js"></script>
 	<script src="../shared/dash.js"></script>
+	<script src="../shared/overlay-list.js"></script>
 	<script src="../shared/overlays.js"></script>
 	<script>
 		const $ = KB.$;
@@ -131,9 +135,15 @@
 			KBD.fillSelect('#agent', '<option value="">Auto (agent pické sur la map, sinon favori)</option>'
 				+ ((p && p.agents) || []).map((a, i) => `<option value="${esc(a.id || a.name)}">${esc(`${a.name}${a.matches ? ` (${a.matches} matchs)` : ''}${i === 0 ? ' · favori' : ''}`)}</option>`).join(''), g.agentId || '');
 			$('#agent').disabled = !p;
+			const view = KBP.view(g);
+			KBD.fillSelect('#view', Object.entries(KBP.VIEWS).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join(''), view);
+			// Vue par rôle sans données : la fiche affiche les 4 rôles « pas joué »
+			const noRoles = view === 'roles' && p && !p.roles.length;
+			$('#viewHint').hidden = !noRoles;
+			$('#viewHint').textContent = noRoles ? (p.hasTracker ? 'Aucune stat par rôle dans ce profil : actualise-le depuis tracker.gg (Équipes & Joueurs).' : 'Pas de profil tracker.gg : les stats par rôle viennent de l\'import tracker.gg.') : '';
 			setHtml($('#statsOv'), KBO.button('player-stats'));
 			$('#dot').className = 'dot' + (g.visible && p ? ' on' : '');
-			$('#statusText').textContent = p ? (g.visible ? 'À l\'antenne : ' : 'Prêt : ') + playerLabel(p) + (!p.hasTracker && !p.manual ? ' · pas de stats' : '') : 'Sélectionne un joueur';
+			$('#statusText').textContent = p ? (g.visible ? 'À l\'antenne : ' : 'Prêt : ') + playerLabel(p) + (view === 'roles' ? ' · par rôle' : '') + (!p.hasTracker && !p.manual ? ' · pas de stats' : '') : 'Sélectionne un joueur';
 		}
 		$('#statTeam').onchange = (e) => { pickTeam.stat = e.target.value; fillPlayerSelect($('#statPlayer'), e.target.value, null); };
 		$('#statPlayer').onchange = (e) => {
@@ -142,6 +152,7 @@
 			graphic.value = { ...graphic.value, playerId: p ? p.key : null, agentId: null, ...(p ? {} : { visible: false }) };
 		};
 		$('#agent').onchange = (e) => { graphic.value = { ...graphic.value, agentId: e.target.value || null }; };
+		$('#view').onchange = (e) => { graphic.value = { ...graphic.value, view: e.target.value }; };
 		KBO.bind('#statsOv');
 
 		// --- Duel

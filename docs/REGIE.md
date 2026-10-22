@@ -17,7 +17,10 @@ La régie s'ouvre sur http://localhost:9090. Les onglets sont en haut : **MAIN W
 Les autres champs (textes des écrans, scores, réglages de la transition…) s'enregistrent tout seuls dès que tu les changes.
 
 ### Un seul plein écran à la fois
-Case **Un seul plein écran à la fois (masque les autres automatiquement)**, dans la Régie, cochée par défaut : afficher un overlay plein écran (versus, veto, maps, joueurs, groupes, bracket) masque les autres plein écran. Les lower thirds et le ticker ne sont pas concernés. Ce choix est mémorisé dans ce navigateur et vaut pour tous les panneaux.
+Case **Un seul plein écran à la fois (masque les autres automatiquement)**, dans la Régie, cochée par défaut : afficher un overlay plein écran (versus, veto, maps, joueurs, groupes, bracket) masque les autres plein écran. Les lower thirds, le ticker et le bug Replay ne sont pas concernés. Ce choix est mémorisé dans ce navigateur et vaut pour tous les panneaux.
+
+### Transition des plein écran
+Case **Transition (stinger) pour entrer, sortir et passer d'un plein écran à l'autre**, dans la Régie, décochée par défaut. Cochée, afficher ou masquer un overlay plein écran, depuis n'importe quel panneau ou Companion, joue le stinger (logo) et fait le changement quand il couvre l'écran (environ 1 s après le clic). Passer d'un plein écran à un autre (ex. Maps de la série → Récap du veto) = un seul stinger. Le réglage est commun à toute la régie et à Companion. Restent immédiats : **Tout masquer** (qui annule aussi un plein écran en attente de son stinger), les scènes de fond et l'action **Vers** d'une transition lancée à la main (déjà sous un stinger).
 
 ---
 
@@ -27,7 +30,8 @@ Case **Un seul plein écran à la fois (masque les autres automatiquement)**, da
 Le panneau du direct. Il ne touche jamais aux données.
 - **Match en cours** : équipes, score de la série, phase, format, map en cours et son score.
 - **Transition** : **1. Type** (**Logo seul**, **Logo + map** avec le menu de la map, ou **Replay** : titre « REPLAY » pour lancer ou quitter un ralenti), **2. Vers** (ce qui se passe quand l'écran est couvert : rien, **Tout masquer · retour au jeu**, une scène de fond ou un overlay plein écran), puis **▶ LANCER LA TRANSITION**. La ligne en dessous rappelle la durée et le point de coupe (réglables dans Maps & Transitions).
-- **Sans transition** : **Tout masquer · retour au jeu** masque tous les overlays et repasse sur le jeu. Les boutons de scène de fond (**Jeu (aucune)**, **Bientôt**, **Pause**, **Fin**, **Planning**, **50/50 caméras**) changent le fond de `stream.html` ; une scène autre que **Jeu** masque d'abord les overlays plein écran. **Passage** : **Fondu** ou **Coupe sèche**.
+  **Ralenti** en un clic : **▶ Replay + bug** (transition replay, puis le bug « REPLAY » en haut à droite apparaît écran couvert) et **■ Fin du replay** (le bug disparaît d'abord, puis la transition replay est jouée une fois sa sortie finie). Tant que le bug est à l'antenne, **■ Fin du replay** est en doré.
+- **Sans transition** : **Tout masquer · retour au jeu** masque tous les overlays et repasse sur le jeu. Les boutons de scène de fond (**Jeu (aucune)**, **Bientôt**, **Pause**, **Fin**, **Planning**, **50/50 caméras**) changent le fond de `stream.html` ; chacun masque d'abord les overlays plein écran (**Jeu** = retour au jeu sans eux ; lower thirds et ticker restent). **Passage** : **Fondu** ou **Coupe sèche**.
 - **Overlays** : chaque overlay avec son bouton **AFFICHER** / **● À L'ANTENNE**, rangés par groupe (En jeu, Match, Maps, Joueurs, Tournoi), et la case **Un seul plein écran à la fois**.
 - **Plateau : host et casters** : pour **Gauche**, **Centre** et **Droite**, choisis qui apparaît (ou « — personne — »), puis **AFFICHER LE PLATEAU** ; **Masquer** retire les trois. Par défaut : le host au centre, les deux premiers casters à gauche et à droite. Avec le centre affiché, les trois lower thirds se resserrent pour tenir côte à côte.
 - **Lower thirds rapides** : gauche, centre et droite ; menu **Preset…**, style, titre, sous-titre, **Mettre à jour** (ou Entrée dans un champ), **AFFICHER**. C'est le même lower third que dans le panneau Lower thirds : les deux restent synchronisés.
@@ -87,7 +91,7 @@ Le panneau du direct. Il ne touche jamais aux données.
 - **Barre du haut** : **Versus**, **Veto des maps** et **Récap du veto**, chacun avec **AFFICHER** / **● À L'ANTENNE**.
 - **Match** : **Phase** (liste, ou « Autre (libre)… »), **Format** (BO1, BO3, BO5), **Équipe A**, **Équipe B**, **⇄ Inverser gauche / droite** (côtés à l'écran).
 - **Tableau des maps** : map, pick, **Score A**, **Score B**, vainqueur, statut (À venir, En cours, Terminée). **Définir en cours** fait de cette map la map courante ; **Terminer** la passe en « Terminée » avec le vainqueur selon le score (refusé en cas d'égalité) ; ✕ supprime la map (2 clics).
-- **+ Ajouter une map** ; **Remplir depuis le veto** crée la liste des maps à partir des picks et du decider du veto (2 clics si des scores existent déjà ; les scores des maps gardées sont conservés) ; **Réinitialiser le match** remet scores, vainqueurs et statuts à zéro, revient à la map 1 et annule l'inversion gauche / droite (2 clics).
+- **+ Ajouter une map** ; **Remplir depuis le veto** refait la liste des maps à partir des picks et du decider du veto, par exemple après une modification à la main (2 clics si des scores existent déjà ; les scores des maps gardées sont conservés). La liste suit déjà le veto toute seule ; **Réinitialiser le match** remet scores, vainqueurs et statuts à zéro, revient à la map 1 et annule l'inversion gauche / droite (2 clics).
 - **Agents joués par map** : choisis la map, puis l'agent de chaque joueur. **Copier depuis la map précédente** ; **Effacer** (2 clics).
 - **Équipes du match** : rappel des 5 titulaires de chaque équipe. Les équipes se gèrent dans **Équipes & Joueurs**.
 
@@ -110,10 +114,14 @@ Le panneau du direct. Il ne touche jamais aux données.
 - **Déroulé** : étapes jouées et à venir.
 - **Ordre du veto personnalisé (avancé)** (à déplier) : modifier l'action ou l'équipe de chaque étape, ✕ pour la retirer, **+ Étape**. Dès la première modification, l'ordre ne suit plus les paramètres ; **Revenir à l'ordre automatique** annule cela.
 
-Le veto ne remplit pas tout seul la liste des maps du match : une fois fini, clique **Remplir depuis le veto** dans le panneau Match.
+Le veto remplit tout seul la liste des maps du match, au fil des picks et du decider : Intro de map, Maps de la série et Récap du veto suivent immédiatement. Les scores déjà saisis sont gardés ; annuler un pick retire sa map ; vider le veto ne touche pas à la série.
 
 ### Stats Joueur · fiche et duel
-- **Stats joueur** : **Équipe** (ou « Sans équipe ») puis **Joueur**, et l'agent mis en avant. **AFFICHER** (grisé tant qu'aucun joueur n'est choisi).
+- **Stats joueur** : **Équipe** (ou « Sans équipe ») puis **Joueur**, l'agent mis en avant et la **Vue** :
+  - **Stats générales** : rang actuel, peak et 6 stats (K/D, ACS, ADR, HS%, KAST, victoires) ;
+  - **Performances par rôle** : Duelliste, Initiateur, Contrôleur, Sentinelle, du plus joué au moins joué, avec matchs, temps de jeu, part du temps, Win %, K/D, ACS, ADR et KAST. Le rôle le plus joué porte la mention **Principal** ; la meilleure valeur de chaque colonne est en or (seulement entre rôles joués au moins 2 fois) ; un rôle jamais joué est estompé. Ces stats viennent de l'import tracker.gg (pas de saisie manuelle).
+
+  Changer de vue pendant que la fiche est à l'antenne : la nouvelle vue arrive par-dessus l'ancienne en volet diagonal doré (0,7 s), sans que la fiche sorte. Changer de joueur ou d'agent la fait sortir puis revenir. **AFFICHER** (grisé tant qu'aucun joueur n'est choisi).
 - **Duel (face-à-face)** : un joueur à gauche, un à droite. **Équipes du match** propose un joueur de chaque équipe du match (de même rôle si possible) ; **⇄** inverse les côtés. **AFFICHER**.
 - **Profils manquants** : joueurs d'équipe sans profil tracker.gg, à importer dans **Équipes & Joueurs**.
 - **Profils importés** : un clic sur un profil le choisit pour l'overlay **Stats joueur** ; ✕ (2 clics) supprime seulement le profil tracker.gg (la fiche et la place en équipe sont gardées).
@@ -149,8 +157,16 @@ Le bracket, le planning et le match en cours sont indépendants : un score saisi
 - **3. Tester** : **Charger des données de test** (2 clics) remplit match, scores, veto, agents, planning, bracket et compte à rebours pour répéter. Aucun joueur créé ; tes équipes sont gardées (des équipes adverses vides sont ajoutées s'il en faut 8).
 - **4. Réinitialiser** : coche les catégories à effacer, puis **Réinitialiser la sélection** (2 clics, sauvegarde avant).
 - **5. Réglages** : **Recharger automatiquement les overlays quand leur code change** (à couper pendant le direct) ; **↻ Mettre à jour les maps et agents Valorant**.
+- **6. Bitfocus Companion** : adresse de l'API et jeton secret (**Voir**, **Copier**), **Créer un nouveau jeton** (2 clics). Mise en place des boutons : onglet **Companion** (ci-dessous) ou [COMPANION.md](COMPANION.md).
 
 Tout le détail : [DONNEES.md](DONNEES.md).
+
+### Companion · boutons et API
+Onglet à part (pleine largeur), pour configurer les boutons de Bitfocus Companion sans rien taper :
+- **1. Mise en place** : où mettre le jeton (en-tête, corps JSON ou URL), jeton par variable Companion ou en clair, URL relative ou complète ; les étapes dans Companion avec la Base URL, le nom de la variable et le jeton à copier (jamais affiché). Réglages gardés dans le navigateur.
+- **2. Boutons prêts à l'emploi** : un bouton par ligne (overlays, lower thirds, scènes, transitions, ralenti, score…) avec **URL**, **En-tête** et **Corps** à copier, filtre de recherche ; **⚙** ouvre la route dans la référence.
+- **3. Boutons qui s'allument** : retours visuels par `/value/…`.
+- **Référence** : généralités, codes de réponse, identifiants du moment (presets, maps), puis chaque route avec sa description et **Construire le bouton** (menus des paramètres, valeurs à copier, **▶ Tester**, **Copier en curl**). Tester une action agit sur le direct : 2 clics.
 
 ---
 

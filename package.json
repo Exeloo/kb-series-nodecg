@@ -153,6 +153,13 @@
         "width": 4,
         "headerColor": "#2b2fb5",
         "workspace": "3. Données"
+      },
+      {
+        "name": "companion",
+        "title": "Companion · boutons et API",
+        "file": "companion.html",
+        "fullbleed": true,
+        "headerColor": "#2b2fb5"
       }
     ],
     "graphics": [
@@ -193,6 +200,11 @@
       },
       {
         "file": "ticker.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "replay-bug.html",
         "width": 1920,
         "height": 1080
       },

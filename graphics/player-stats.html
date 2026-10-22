@@ -5,6 +5,8 @@
 	<title>Stats joueur</title>
 	<!--
 		Fiche plein écran d'un joueur : photo (ou emblème), 3 agents, rangs et stats (tracker.gg + saisie manuelle, via KB.player).
+		Deux vues (playerStatsGraphic.view, KBP.VIEWS) : « overview » = rangs + 6 cartes de stats ; « roles » = tableau des performances
+		par rôle (Duelliste, Initiateur, Contrôleur, Sentinelle ; KB.player().roles, KBP.roleRows).
 		Replicants lus : playerStatsGraphic (défaut : KBP.STATS_DEFAULT, shared/player.js), playerProfiles, playerData, teams, match
 		(agent pické sur la map en cours), valorantData, tournament. Piloté par le panneau Stats Joueur (dashboard/player-stats.html).
 	-->
@@ -146,6 +148,56 @@
 		.stat .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--kb-blue), var(--kb-blue-hi)); box-shadow: 0 0 10px var(--kb-blue-glow); transition: width 1.2s var(--kb-ease-out) .7s; }
 		.stat .top { position: absolute; top: 22px; right: 22px; font: 700 18px var(--kb-num); letter-spacing: .08em; color: var(--kb-gold-hi); }
 		.kb-anim--right { --d: .35s; }
+
+		/* ---------- Vue « par rôle » ---------- */
+		.v-roles #ranks, .v-roles #stats, :not(.v-roles) > #roles { display: none; }
+		#roles { display: flex; flex-direction: column; justify-content: space-between; gap: 14px; flex: 1; margin-top: 26px; min-height: 0; }
+		/* Ligne d'un rôle : icône à gauche sur deux lignes ; en haut nom + infos, en bas les 5 stats */
+		.role { position: relative; display: grid; grid-template-columns: 76px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 18px; row-gap: 6px; align-items: center; padding: 12px 22px 18px 16px; }
+		.role .ic { grid-row: 1 / 3; width: 76px; height: 76px; display: grid; place-items: center; }
+		.role .ic img { width: 62px; height: 62px; object-fit: contain; filter: drop-shadow(0 0 8px rgba(140, 170, 255, .35)); }
+		.role .who { display: flex; align-items: baseline; gap: 16px; min-width: 0; white-space: nowrap; }
+		.role .rn { flex: 0 0 auto; font: 400 36px/1 var(--kb-display); text-transform: uppercase; }
+		.role .rs { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 700 17px var(--kb-num); color: var(--kb-muted); letter-spacing: .08em; }
+		.role .rs b { color: var(--kb-text); }
+		.role .cells { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+		.role .cell { min-width: 0; }
+		.role .cell .kb-label { font-size: 13px; color: var(--kb-gold); }
+		.role .rv { font: 400 34px/1.05 var(--kb-display); white-space: nowrap; margin-top: 2px; }
+		.role .rv.best { color: var(--kb-gold-hi); text-shadow: 0 0 14px rgba(245, 196, 69, .45); }
+		/* Part du temps de jeu de ce rôle */
+		.role .share { position: absolute; left: 18px; right: 20px; bottom: 8px; height: 4px; background: rgba(140, 170, 255, .12); }
+		.role .share i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--kb-blue), var(--kb-blue-hi)); box-shadow: 0 0 8px var(--kb-blue-glow); transition: width 1.2s var(--kb-ease-out) .7s; }
+		/* Rôle principal (le plus joué) : liseré doré + pastille */
+		.role.main { box-shadow: inset 4px 0 0 var(--kb-gold), 0 0 24px rgba(245, 196, 69, .12); }
+		.role.main .share i { background: linear-gradient(90deg, var(--kb-gold-dim), var(--kb-gold-hi)); box-shadow: 0 0 8px rgba(245, 196, 69, .5); }
+		.role .pk { flex: 0 0 auto; align-self: center; padding: 2px 10px; background: var(--kb-gold); color: var(--kb-ink); font: 700 12px var(--kb-ui); letter-spacing: .2em; text-transform: uppercase; }
+		/* ---------- Changement de vue à l'antenne : la nouvelle vue recouvre l'ancienne ----------
+		   L'ancienne colonne est figée dans une copie (.vx-old) ; la nouvelle (#content.vx-new) arrive par-dessus en volet diagonal
+		   (même angle que #slash, 190 px de décalage sur 888 px de haut) pendant que la copie est découpée au même rythme :
+		   on ne voit jamais le fond entre les deux. Un filet doré (.vx-seam) suit la jonction. Durée : VX_MS (script). */
+		.vx-old { z-index: 1; pointer-events: none; animation: vxOut .7s var(--kb-ease-inout) both; }
+		.vx-old *, .vx-old *::before, .vx-old *::after { animation: none !important; transition: none !important; }
+		#content.vx-new { z-index: 2; animation: vxIn .7s var(--kb-ease-inout) both; }
+		/* Nouvelle vue déjà en place : une partie qui réapparaît (display) ne rejoue pas son entrée retardée */
+		#content.kb-settled .rank img { animation: none; }
+		@keyframes vxIn {
+			from { clip-path: polygon(-190px 0, 0 0, -190px 100%, -190px 100%); }
+			to { clip-path: polygon(-190px 0, calc(100% + 190px) 0, 100% 100%, -190px 100%); }
+		}
+		@keyframes vxOut {
+			from { clip-path: polygon(0 0, calc(100% + 190px) 0, calc(100% + 190px) 100%, -190px 100%); }
+			to { clip-path: polygon(calc(100% + 190px) 0, calc(100% + 190px) 0, calc(100% + 190px) 100%, 100% 100%); }
+		}
+		/* Filet de jonction : centré sur #content (left 1050, top 96, 782 × 888) ; à mi-hauteur la jonction est 95 px avant son sommet */
+		.vx-seam { position: absolute; left: 1047px; top: 96px; width: 6px; height: 888px; z-index: 3; pointer-events: none;
+			background: linear-gradient(180deg, transparent, var(--kb-gold) 12%, var(--kb-gold-hi) 50%, var(--kb-gold) 88%, transparent);
+			box-shadow: 0 0 18px rgba(245, 196, 69, .7), 0 0 40px rgba(245, 196, 69, .35); animation: vxSeam .7s var(--kb-ease-inout) both; }
+		@keyframes vxSeam { from { transform: translateX(-95px) skewX(-12deg); } to { transform: translateX(877px) skewX(-12deg); } }
+
+		/* Rôle jamais joué cette saison : contenu estompé (l'opacité de la ligne elle-même est pilotée par son animation d'entrée) */
+		.role.off > * { opacity: .38; }
+		.role.off .rs { font-style: italic; }
 	</style>
 </head>
 <body>
@@ -163,13 +215,14 @@
 		<div class="kb-frame"></div>
 
 		<div id="content">
-			<div class="kicker kb-anim kb-anim--right" style="--i:0"><span class="kb-kicker">Stats joueur</span><span class="kb-label" id="season"></span></div>
+			<div class="kicker kb-anim kb-anim--right" style="--i:0"><span class="kb-kicker" id="kicker">Stats joueur</span><span class="kb-label" id="season"></span></div>
 			<div id="name" class="kb-anim kb-anim--right" style="--i:1"></div>
 			<div id="real" class="kb-anim kb-anim--right" style="--i:1"></div>
 			<div id="teamRow" class="kb-anim kb-anim--right" style="--i:2"></div>
 			<div class="kb-rule sep"></div>
 			<div id="ranks" class="kb-anim kb-anim--right" style="--i:3"></div>
 			<div id="stats"></div>
+			<div id="roles"></div>
 		</div>
 	</div>
 
@@ -195,6 +248,45 @@
 		const setHTML = (el, html) => { if (el._h !== html) { el._h = html; el.innerHTML = html; } };
 		const same = (a, b) => a && b && (a.id && a.id === b.id || a.name === b.name);
 
+		// Colonnes du tableau par rôle : libellé + champ affiché (+ champ numérique pour repérer la meilleure valeur)
+		const ROLE_COLS = [['Win', 'winPct', 'winValue'], ['K/D', 'kd', 'kdValue'], ['ACS', 'acs', 'acsValue'], ['ADR', 'adr', 'adrValue'], ['KAST', 'kast', 'kastValue']];
+		// Une meilleure valeur n'est signalée qu'entre rôles joués au moins MIN_BEST fois (1 match ne veut rien dire)
+		const MIN_BEST = 2;
+		const pctText = (v, d) => (v != null ? Math.round(v) + '%' : d || '–');
+		// Icônes d'un rôle, par ordre de préférence : valorant-api.com (cache valorantData, n'importe quel agent de ce rôle),
+		// puis celle importée de tracker.gg (son CDN ne sert pas toutes les icônes : Sentinelle répond 404).
+		// Une image qui ne charge pas passe à la suivante (data-alt), sinon elle est masquée : voir l'écouteur « error » de #roles.
+		const roleIcons = (r) => {
+			const vapi = (Object.values((KB.rep.valorantData.value || {}).agents || {}).find((a) => a.role && a.role.toLowerCase() === r.key) || {}).roleIcon;
+			return [...new Set([vapi, r.icon].filter(Boolean))];
+		};
+		$('roles').addEventListener('error', (e) => {
+			const img = e.target;
+			if (img.tagName !== 'IMG') return;
+			if (img.dataset.alt) { const alt = img.dataset.alt; img.dataset.alt = ''; img.src = alt; } else img.style.visibility = 'hidden';
+		}, true);
+		function rolesHTML(p) {
+			const rows = KBP.roleRows(p.roles);
+			const cands = rows.filter((r) => r.played && (r.matchesValue || 0) >= MIN_BEST);
+			const best = {};
+			if (cands.length >= 2) for (const [, , num] of ROLE_COLS) best[num] = Math.max(...cands.map((r) => r[num] ?? -Infinity));
+			return rows.map((r, i) => {
+				const [icon, alt] = roleIcons(r);
+				const cells = ROLE_COLS.map(([lbl, key, num]) => {
+					const text = !r.played ? '–' : key === 'winPct' || key === 'kast' ? pctText(r[num], r[key]) : r[key] || '–';
+					const top = r.played && best[num] != null && cands.includes(r) && r[num] === best[num];
+					return `<div class="cell"><div class="kb-label">${lbl}</div><div class="rv${top ? ' best' : ''}" data-count="${esc(text)}">${esc(text)}</div></div>`;
+				}).join('');
+				const sub = r.played
+					? `<b>${esc(r.matches || '0')}</b> match${(r.matchesValue || 0) > 1 ? 's' : ''}${r.timePlayed ? ` · ${esc(r.timePlayed)}` : ''} · <b>${r.share}%</b> du temps`
+					: 'Pas joué cette saison';
+				return `<div class="role kb-panel kb-anim kb-anim--right${r.main ? ' main' : ''}${r.played ? '' : ' off'}" style="--i:${4 + i}">
+					<div class="ic">${icon ? `<img src="${esc(icon)}"${alt ? ` data-alt="${esc(alt)}"` : ''} alt="">` : ''}</div>
+					<div class="who"><div class="rn">${esc(KB.roleLabel(r.key))}</div>${r.main ? '<span class="pk">Principal</span>' : ''}<div class="rs">${sub}</div></div>
+					<div class="cells">${cells}</div><div class="share"><i data-w="${r.share}"></i></div></div>`;
+			}).join('');
+		}
+
 		// Squelette des cartes de stats, recréé à chaque apparition (barres à 0, prêtes à se remplir)
 		function buildStats() {
 			$('stats').innerHTML = STATS.map(([lbl], i) => `<div class="stat kb-panel kb-anim kb-anim--right" style="--i:${4 + i}"><div class="kb-label">${lbl}</div>
@@ -202,8 +294,11 @@
 		}
 
 		// live = mise à jour d'une fiche déjà à l'écran : une valeur modifiée est recomptée brièvement, le reste ne bouge pas
-		function fill(p, agentId, live) {
+		function fill(p, agentId, live, view) {
 			const s = p.stats || {};
+			$('content').classList.toggle('v-roles', view === 'roles');
+			$('kicker').textContent = view === 'roles' ? 'Performances par rôle' : 'Stats joueur';
+			if (view === 'roles') setHTML($('roles'), rolesHTML(p));
 			const all = p.agents || [];
 			// Ordre : agent choisi dans le panneau > agent pické sur la map en cours > plus joués
 			const chosen = agentId && all.find((a) => a.id === agentId || a.name === agentId);
@@ -240,7 +335,7 @@
 
 			const wins = s.wins && s.wins.value != null ? Math.round(s.wins.value) : null;
 			const losses = s.losses && s.losses.value != null ? Math.round(s.losses.value) : null;
-			KB.$$('#stats .stat').forEach((card, i) => {
+			KB.$$('.stat', $('stats')).forEach((card, i) => {
 				const st = s[STATS[i][1]];
 				const pc = st && st.percentile;
 				const val = KB.$('.val', card), text = v(st);
@@ -256,29 +351,79 @@
 		}
 
 		const fitName = () => KB.fit($('name'), { max: 140, min: 64, step: 4, width: $('content').clientWidth });
-		const fillBars = () => KB.$$('#stats .bar i').forEach((i) => { i.style.width = i.dataset.w + '%'; });
-		function display(p, agentId) {
+		// Requêtes limitées à la colonne affichée : pendant un changement de vue, sa copie figée (.vx-old) porte les mêmes id
+		const fillBars = () => KB.$$('.bar i, .share i', $('content')).forEach((i) => { i.style.width = i.dataset.w + '%'; });
+		const countValues = (view, delay, duration) => KB.$$(view === 'roles' ? '.rv' : '.stat .val', $('content'))
+			.forEach((el) => { if (el.dataset.count !== '–') KB.countUp(el, el.dataset.count, { delay, duration }); });
+
+		// ---------- Changement de vue à l'antenne (même joueur, même agent) : la nouvelle vue recouvre l'ancienne ----------
+		const VX_MS = 700; // durée des animations vxIn / vxOut / vxSeam (CSS)
+		let vx = null;     // changement en cours { old, seam, timer }
+		function endSwitch() {
+			if (!vx) return;
+			clearTimeout(vx.timer);
+			vx.old.remove();
+			vx.seam.remove();
+			$('content').classList.remove('vx-new');
+			vx = null;
+		}
+		function switchView(p, agentId, view) {
+			endSwitch();
+			const content = $('content');
+			// Copie figée de la vue affichée, placée APRÈS l'original (getElementById trouve toujours l'original)
+			const old = content.cloneNode(true);
+			old.classList.add('vx-old', 'kb-settled');
+			old.setAttribute('aria-hidden', 'true');
+			content.after(old);
+			// Nouvelle vue : visible d'emblée (kb-settled, pas de cascade), sinon le fond apparaîtrait sous le volet
+			content.classList.add('kb-settled');
 			buildStats();
-			fill(p, agentId, false);
-			presence.show();
+			$('roles')._h = null;
+			fill(p, agentId, false, view);
 			fitName();
-			KB.$$('#stats .val').forEach((el) => KB.countUp(el, el.dataset.count, { delay: 650, duration: 1100 }));
+			content.classList.remove('vx-new');
+			void content.offsetWidth; // relance l'animation si un changement précédent vient d'être interrompu
+			content.classList.add('vx-new');
+			const seam = document.createElement('div');
+			seam.className = 'vx-seam';
+			$('scene').appendChild(seam);
+			vx = { old, seam, timer: setTimeout(endSwitch, VX_MS + 50) };
+			countValues(view, 250, 800);
 			requestAnimationFrame(() => requestAnimationFrame(fillBars));
 		}
 
-		let shownKey = null, swapTimer = null;
+		function display(p, agentId, view) {
+			endSwitch();
+			$('content').classList.remove('kb-settled');
+			buildStats();
+			// Tableau par rôle recréé à chaque apparition : ses lignes rejouent leur entrée, ses barres repartent de 0
+			$('roles')._h = null;
+			fill(p, agentId, false, view);
+			presence.show();
+			fitName();
+			countValues(view, 650, 1100);
+			requestAnimationFrame(() => requestAnimationFrame(fillBars));
+		}
+
+		let shown = null, swapTimer = null; // shown = { card: 'joueur|agent', view } de la fiche à l'écran
 		function update() {
 			const g = graphic.value || {};
 			const p = g.playerId ? KB.player(g.playerId) : null;
 			clearTimeout(swapTimer);
-			if (!g.visible || !p) { shownKey = null; presence.hide(); return; }
-			const key = `${p.key}|${g.agentId}`;
-			// Même joueur déjà à l'écran (score du match, données, photo modifiés) : mise à jour en place, sans rejouer l'entrée
-			if (presence.visible && key === shownKey) { fill(p, g.agentId, true); fitName(); fillBars(); return; }
+			if (!g.visible || !p) { shown = null; endSwitch(); presence.hide(); return; }
+			const view = KBP.view(g);
+			const card = `${p.key}|${g.agentId}`;
+			if (presence.visible && shown && shown.card === card) {
+				// Même fiche, autre vue : la nouvelle vue recouvre l'ancienne, sans faire sortir la fiche
+				if (shown.view !== view) { shown.view = view; switchView(p, g.agentId, view); return; }
+				// Même joueur déjà à l'écran (score du match, données, photo modifiés) : mise à jour en place, sans rejouer l'entrée
+				fill(p, g.agentId, true, view); fitName(); fillBars(); return;
+			}
 			const swap = presence.visible;
-			shownKey = key;
-			if (swap) { presence.hide(); swapTimer = setTimeout(() => display(p, g.agentId), 520); }
-			else display(p, g.agentId);
+			shown = { card, view };
+			endSwitch();
+			if (swap) { presence.hide(); swapTimer = setTimeout(() => display(p, g.agentId, view), 520); }
+			else display(p, g.agentId, view);
 		}
 
 		KB.watch(['playerProfiles', 'playerData', 'teams', 'match', 'valorantData', graphic], update);

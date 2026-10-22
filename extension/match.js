@@ -8,7 +8,9 @@
 // Format du match : match.format (panneau Match) et matchVeto.format (panneau Veto) restent identiques ; tant que
 // l'ordre du veto n'a pas été modifié à la main (custom), il est recalculé quand le format, l'équipe qui commence
 // ou le nombre de maps en rotation (veto.pool) change.
-const { MATCH_DEFAULTS, FORMATS, buildSequence, sameSequence } = require('../shared/match.js');
+// Maps de la série : dès que les picks / le decider du veto changent, match.maps est recalculé (KBMatch.mapsFromVeto :
+// scores, vainqueurs et agents des maps déjà présentes gardés). Un veto vidé ne touche pas à la série.
+const { MATCH_DEFAULTS, FORMATS, buildSequence, sameSequence, vetoPicks, vetoPicksKey, mapsFromVeto } = require('../shared/match.js');
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
 
@@ -53,5 +55,23 @@ module.exports = function (nodecg) {
 		if (FORMATS.includes(p.format) && match.value && match.value.format !== p.format && (!old || old.format !== p.format)) match.value.format = p.format;
 		sync();
 	});
-	veto.on('change', (v, old) => { if (!old || ((v && v.pool) || []).length !== ((old && old.pool) || []).length) sync(); });
+	veto.on('change', (v, old) => {
+		if (!old || ((v && v.pool) || []).length !== ((old && old.pool) || []).length) sync();
+		// Au démarrage (old absent), la série enregistrée fait foi : seules les modifications du veto la recalculent
+		if (old) syncMaps(v, old);
+	});
+
+	// Veto → maps de la série, pour que Intro de map, Maps de la série et Récap du veto suivent le veto sans attendre
+	// le bouton « Remplir depuis le veto » du panneau Match (toujours là pour refaire la liste après une modification à la main)
+	function syncMaps(v, old) {
+		const steps = (v && v.steps) || [];
+		if (vetoPicksKey(steps) === vetoPicksKey(old && old.steps)) return; // bans, côtés… : la liste des maps ne change pas
+		if (!vetoPicks(steps).length) return; // veto vidé ou recommencé : la série en cours n'est pas effacée
+		const m = match.value;
+		if (!m) return;
+		const maps = mapsFromVeto(steps, m.maps);
+		if (JSON.stringify(maps) === JSON.stringify(m.maps || [])) return;
+		match.value = { ...clone(m), maps, currentMap: (+m.currentMap || 0) < maps.length ? +m.currentMap || 0 : 0 };
+		nodecg.log.info(`Maps de la série reprises du veto : ${maps.map((x) => x.map).join(', ')}`);
+	}
 };

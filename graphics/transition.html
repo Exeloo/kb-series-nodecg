@@ -7,7 +7,7 @@
 		Stinger plein écran : volets (clip-path) qui couvrent puis découvrent l'écran, logo, nom de la map ou titre « REPLAY » au milieu.
 		Trois types (KBM.trKind) : logo seul, logo + map, replay — même habillage, seul le titre change.
 		Toute l'animation est une fonction du temps : apply(t) — même rendu en direct, en aperçu et en export.
-		Replicants lus : transition (déclencheur), mapsTransitionSettings (réglages), match, teams, valorantData.
+		Replicants lus : transition (déclencheur ; style = préréglage pour cette fois, KBM.trStyle), mapsTransitionSettings (réglages), match, teams, valorantData.
 		Déclenché par la régie et le panneau Maps & Transitions ; géométrie / couverture : KBM.stingerModel (shared/maps.js).
 		Modes : normal (écoute le replicant `transition`), ?preview=1 (aperçu du panneau, piloté par postMessage, n'écoute rien),
 		        ?export=1 (piloté image par image par tools/export-stinger.js).
@@ -47,9 +47,6 @@
 		.title-bottom #maprule, .title-left #maprule { transform-origin: 0 50%; }
 		#mappick { display: flex; align-items: center; gap: 14px; margin-top: 18px; font: 700 22px var(--kb-ui); letter-spacing: .26em; text-transform: uppercase; color: var(--kb-text); opacity: 0; }
 		#mappick b { color: var(--kb-gold-hi); font-weight: 700; }
-		/* Replay : chevrons « retour arrière » devant le sur-titre */
-		.rw { display: inline-block; width: 30px; height: 18px; margin-right: 14px; vertical-align: -1px; background: var(--kb-gold);
-			clip-path: polygon(0 50%, 50% 0, 50% 50%, 100% 0, 100% 100%, 50% 50%, 50% 100%); }
 	</style>
 </head>
 <body>
@@ -142,8 +139,9 @@
 			$('#logo').style.width = $('#logo').style.height = size + 'px';
 			$('#flare').style.display = $('#streak').style.display = s.logoFlare ? '' : 'none';
 			if (replay) {
-				$('#mapkicker').innerHTML = '<i class="rw"></i>Revoyons l’action';
-				$('#mapkicker').style.display = '';
+				// Replay : titre seul, sans sur-titre
+				$('#mapkicker').textContent = '';
+				$('#mapkicker').style.display = 'none';
 				$('#mapname').textContent = label;
 				$('#mapname').style.display = $('#maprule').style.display = '';
 				$('#mapname').style.fontSize = '180px';
@@ -295,7 +293,9 @@
 				if (lastAt === null) { lastAt = at || 0; return; }
 				if (!at || at === lastAt) return;
 				lastAt = at;
-				play(v.map || null, trRep.value, KBM.trKind(v));
+				// style (API Companion) : préréglage joué pour cette transition seulement
+				const styled = v.style && KBM.trStyle(trRep.value, v.style);
+				play(v.map || null, styled ? styled.settings : trRep.value, KBM.trKind(v));
 			};
 			onChange(KB.rep.transition.value);
 			KB.rep.transition.on('change', onChange);

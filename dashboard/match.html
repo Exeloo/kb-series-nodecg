@@ -84,7 +84,7 @@
 				<thead><tr><th></th><th>Map</th><th>Pick</th><th>Score A</th><th>Score B</th><th>Vainqueur</th><th>Statut</th><th></th><th></th></tr></thead>
 				<tbody id="maps"></tbody>
 			</table>
-			<div class="empty hidden" id="mapsEmpty">Aucune map dans la série. Ajoute-en ou remplis depuis le veto.</div>
+			<div class="empty hidden" id="mapsEmpty">Aucune map dans la série. Elles arrivent toutes seules au fil du veto, ou ajoute-les ici.</div>
 			<div class="actions">
 				<button id="addMap">+ Ajouter une map</button>
 				<button class="gold" id="fillVeto">Remplir depuis le veto</button>
@@ -119,6 +119,7 @@
 	<script src="../shared/kb.js"></script>
 	<script src="../shared/match.js"></script>
 	<script src="../shared/dash.js"></script>
+	<script src="../shared/overlay-list.js"></script>
 	<script src="../shared/overlays.js"></script>
 	<script>
 		const M = window.KBMatch;
@@ -223,14 +224,10 @@
 
 		function fillFromVeto() {
 			const steps = (KB.rep.veto.value && KB.rep.veto.value.steps) || [];
-			const chosen = steps.filter((s) => (s.action === 'pick' || s.action === 'decider') && s.map);
+			const chosen = KBMatch.vetoPicks(steps);
 			if (!chosen.length) return flash('matchMsg', 'Aucun pick ni decider dans le veto.', 'err');
 			const m = match();
-			const old = m.maps || [];
-			m.maps = chosen.map((s) => {
-				const prev = old.find((o) => o.map === s.map);
-				return prev ? { ...prev, pickedBy: s.action === 'decider' ? 'decider' : s.team } : { map: s.map, pickedBy: s.action === 'decider' ? 'decider' : s.team, scoreA: 0, scoreB: 0, winner: null, status: 'upcoming' };
-			});
+			m.maps = KBMatch.mapsFromVeto(steps, m.maps);
 			if (m.currentMap >= m.maps.length) m.currentMap = 0;
 			flash('matchMsg', `${chosen.length} map(s) importée(s) depuis le veto : ${chosen.map((s) => s.map).join(', ')}.`);
 		}

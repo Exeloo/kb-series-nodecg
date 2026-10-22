@@ -11,6 +11,7 @@ Tout s'enregistre automatiquement, au fil de l'eau, dans le dossier du projet. A
 | `db/backups/` | Les sauvegardes automatiques (un fichier `.json` par sauvegarde, les 50 plus récentes). |
 | `db/tracker/` | Les réponses brutes de tracker.gg, une par joueur importé. |
 | `db/session-secret` | Seulement si un mot de passe est activé : secret des sessions de connexion. |
+| `db/companion-token` | Jeton de l'API Bitfocus Companion ([COMPANION.md](COMPANION.md)). Ni exporté ni sauvegardé : sur une autre régie, un nouveau jeton est créé. |
 | `assets/valorant-tournament/` | Les fichiers envoyés dans **ASSETS** : logos d'équipes, photos de joueurs. |
 
 La copie la plus complète possible : régie **arrêtée**, copie les dossiers `db/` et `assets/` entiers.

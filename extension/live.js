@@ -1,6 +1,7 @@
 // Logique serveur : live (lower thirds gauche / centre / droite + presets, ticker, écran 50/50, raccourcis de score de série)
-// Replicants : liveLowerThird, liveLowerThirdPresets, liveTicker, liveDualCam (défauts : shared/live.js, LIVE.defaults)
+// Replicants : liveLowerThird, liveLowerThirdPresets, liveTicker, liveDualCam, liveReplayBug (défauts : shared/live.js, LIVE.defaults)
 // Masque seul un lower third après `duration` secondes. Message : 'live:series' { team, delta } → { A, B, currentMap }
+// Renvoie { series(team, delta) } (même logique que le message, pour l'API Companion)
 const LIVE = require('../shared/live.js');
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -40,9 +41,9 @@ module.exports = function (nodecg, listen) {
 
 	// ---------- Raccourcis score de série ----------
 	// live:series { team: 'A'|'B', delta: 1|-1 } — met à jour match.maps[].winner / status / currentMap
-	listen('live:series', (data) => {
-		const team = data.team;
-		const delta = +data.delta;
+	// (aussi appelé par l'API Companion, extension/companion.js)
+	function series(team, delta) {
+		delta = +delta;
 		if (!['A', 'B'].includes(team) || ![1, -1].includes(delta)) throw new Error('Paramètres invalides');
 		const m = clone(match.value || {});
 		m.maps = Array.isArray(m.maps) ? m.maps : [];
@@ -77,5 +78,8 @@ module.exports = function (nodecg, listen) {
 		match.value = m;
 		const fin = score();
 		return { A: fin.A, B: fin.B, currentMap: m.currentMap };
-	});
+	}
+	listen('live:series', (data) => series(data.team, data.delta));
+
+	return { series };
 };
