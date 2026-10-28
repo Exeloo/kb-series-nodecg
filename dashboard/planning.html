@@ -319,9 +319,11 @@
 					break;
 				case 'parallel': {
 					const s = +slotEl.dataset.slot;
-					const others = p.matches.filter((r) => r.slot === s);
+					// Même phase que le 1er match du créneau (une pause déplacée dans ce créneau ne compte pas)
+					const others = p.matches.filter((r) => r.slot === s && !P.isBreak(r));
 					const ph = others[0] ? others[0].phase : 'pool';
-					savePlan({ ...p, matches: [...p.matches, P.newRow(ph === 'pool' ? 'pool' : ph, { slot: s, streamed: !others.some((r) => r.streamed), group: ph === 'pool' && others[0] ? others[0].group : null, ref: ph === 'pool' ? 0 : Math.min(P.BRACKET[ph].n - 1, others.length) })] });
+					const n = others.filter((r) => r.phase === ph).length;
+					savePlan({ ...p, matches: [...p.matches, P.newRow(ph, { slot: s, streamed: !others.some((r) => r.streamed), group: ph === 'pool' && others[0] ? others[0].group : null, ref: ph === 'pool' ? 0 : Math.min(P.BRACKET[ph].n - 1, n) })] });
 					break;
 				}
 				case 'breakAfter': {

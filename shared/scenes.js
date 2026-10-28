@@ -104,14 +104,15 @@
 		return { refresh() { last = ''; tick(); } };
 	};
 
-	/** Prochain match : `match` en priorité, sinon 1er match live/à venir du planning avec deux équipes */
+	/** Prochain match : `match` en priorité, sinon 1er match live/à venir du planning avec deux équipes (diffusé de préférence) */
 	S.nextMatch = () => {
 		const m = KB.rep.match.value;
 		if (m && (m.teamA || m.teamB)) {
 			const s = KB.sides(m);
 			return { left: s.left, right: s.right, stage: m.stage, format: KB.formatLabel(m.format), source: 'match' };
 		}
-		const row = (KB.rep.schedule.value || []).find((r) => r.status !== 'done' && (r.teamA || r.teamB));
+		const rows = (KB.rep.schedule.value || []).filter((r) => r.status !== 'done' && (r.teamA || r.teamB));
+		const row = rows.find((r) => r.streamed !== false) || rows[0]; // le prochain match diffusé d'abord
 		if (row) return { left: KB.team(row.teamA), right: KB.team(row.teamB), stage: row.label, format: row.time || '', source: 'schedule' };
 		return null;
 	};
@@ -134,9 +135,10 @@
 		Promise.race([document.fonts.ready, KB.sleep(1500)]).then(go);
 	};
 
-	/** Prochain match "à venir" du planning (hors match en cours) */
+	/** Prochain match "à venir" du planning (hors match en cours, diffusé de préférence) */
 	S.upcomingMatch = () => {
-		const row = (KB.rep.schedule.value || []).find((r) => r.status === 'upcoming' || !r.status);
+		const rows = (KB.rep.schedule.value || []).filter((r) => r.status === 'upcoming' || !r.status);
+		const row = rows.find((r) => r.streamed !== false) || rows[0]; // le prochain match diffusé d'abord
 		return row ? { left: KB.team(row.teamA), right: KB.team(row.teamB), stage: row.label, time: row.time || '' } : null;
 	};
 

@@ -26,9 +26,12 @@ module.exports = function (nodecg, listen, backup) {
 	const match = nodecg.Replicant('match');
 	const veto = nodecg.Replicant('veto');
 
-	// Reprise d'un ancien planning (liste `schedule` saisie à la main dans le panneau Écrans)
-	const legacyRows = Array.isArray(schedule.value) ? schedule.value : [];
-	if (!(planning.value && (planning.value.matches || []).length) && legacyRows.length && !legacyRows.some((r) => r && r.slot !== undefined)) {
+	// Reprise d'un ancien planning (liste `schedule` saisie à la main dans le panneau Écrans) : au démarrage, et quand une sauvegarde
+	// ou un export d'une version précédente le réécrit, tant que le planning est vide
+	const isLegacy = (rows) => Array.isArray(rows) && rows.length > 0 && !rows.some((r) => r && r.slot !== undefined);
+	function migrate() {
+		const legacyRows = schedule.value;
+		if ((planning.value && (planning.value.matches || []).length) || !isLegacy(legacyRows)) return false;
 		const p = KBPlan.fromLegacy(legacyRows);
 		if (validBracket(bracket.value)) {
 			// Équipes et scores des anciennes lignes de phase finale → matchs du bracket encore vides
@@ -43,7 +46,9 @@ module.exports = function (nodecg, listen, backup) {
 		}
 		planning.value = p;
 		nodecg.log.info(`Planning : ${p.matches.length} match(s) repris de l'ancien planning`);
+		return true;
 	}
+	migrate();
 
 	// ---------- planning → bracket, schedule ----------
 	let busy = false;
@@ -75,6 +80,8 @@ module.exports = function (nodecg, listen, backup) {
 	}
 	planning.on('change', sync);
 	bracket.on('change', sync);
+	// `schedule` est calculé : une autre valeur (restauration, import, ancien panneau) est reprise ou recalculée
+	schedule.on('change', () => { if (!busy && !migrate()) sync(); });
 
 	// ---------- match en cours → planning / bracket ----------
 	function fromMatch(m) {

@@ -97,7 +97,9 @@
 	LIVE.nextMatchText = (KB) => {
 		const sched = KB.rep.schedule.value || [];
 		const m = KB.rep.match.value || {};
-		const next = sched.find((x) => x.status === 'upcoming');
+		// Le prochain match diffusé d'abord (plusieurs matchs peuvent être joués en même temps, hors stream)
+		const up = sched.filter((x) => x.status === 'upcoming');
+		const next = up.find((x) => x.streamed !== false) || up[0];
 		if (next) {
 			const a = KB.team(next.teamA), b = KB.team(next.teamB);
 			const vs = a || b ? `${a ? a.name : 'À définir'} vs ${b ? b.name : 'À définir'}` : next.label;

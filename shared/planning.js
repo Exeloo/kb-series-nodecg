@@ -112,7 +112,7 @@
 	};
 	const groupName = (bk, gi) => {
 		const g = gi === null || gi === undefined ? null : ((bk && bk.groups) || [])[gi];
-		return g ? g.name || 'Groupe ' + String.fromCharCode(65 + gi) : '';
+		return g ? g.name || 'G ' + String.fromCharCode(65 + gi) : '';
 	};
 	/** Libellé affiché : libre, sinon « Quart de finale 2 », « Phase de poules · Groupe A »… */
 	P.label = (row, bk) => {
