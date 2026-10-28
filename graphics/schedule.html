@@ -1,142 +1,22 @@
 <!DOCTYPE html>
 <html lang="fr" class="kb-graphic">
 <head>
-	<meta charset="utf-8">
-	<title>KB SERIES · Planning</title>
-	<!--
-		Scène plein écran « Planning » : programme du jour (une ligne par match, statut et score).
-		Replicants lus : tournament, teams, schedule, scenesTexts.
-		Pilotée par la régie (scène de fond de stream.html) ; planning et textes saisis dans le panneau Écrans (dashboard/scenes.html).
-	-->
-	<link rel="stylesheet" href="../shared/theme.css">
-	<link rel="stylesheet" href="../shared/scenes.css">
-	<style>
-		.kb-bg__art { opacity: .32; }
-
-		/* ---------- En-tête ---------- */
-		#header { position: absolute; left: 80px; right: 80px; top: 56px; height: 150px; display: flex; align-items: center; gap: 30px; }
-		#kbs { height: 142px; }
-		#htext { flex: 1; min-width: 0; }
-		#kicker { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		#title { font-size: 104px; margin-top: 4px; white-space: nowrap; text-shadow: 0 0 34px rgba(78, 170, 255, .35); }
-		#when { flex: 0 0 auto; text-align: right; }
-		#when .d { font: 400 54px/1 var(--kb-display); color: var(--kb-blue-hi); letter-spacing: .02em; text-shadow: 0 0 20px var(--kb-blue-glow); white-space: nowrap; }
-		#when .kb-label { margin-top: 8px; font-size: 14px; white-space: nowrap; }
-		#rule { position: absolute; left: 80px; right: 80px; top: 222px; transform-origin: left; }
-
-		/* ---------- Liste ---------- */
-		#list { position: absolute; left: 100px; right: 100px; top: 252px; bottom: 66px; display: flex; flex-direction: column; justify-content: center; gap: var(--gap, 12px); }
-		.row { position: relative; flex: 0 0 var(--h, 96px); display: grid; grid-template-columns: 150px 290px 1fr 170px 1fr 230px; align-items: center; padding: 0 30px 0 26px; background: linear-gradient(90deg, rgba(27, 35, 102, .78), rgba(10, 15, 46, .86)); border: 1px solid rgba(94, 196, 255, .22); clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
-		.row::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--kb-blue); }
-		.row .time { font: 700 calc(var(--h) * .44) / 1 var(--kb-num); color: var(--kb-blue-hi); letter-spacing: .02em; }
-		.row .lbl { font: 700 15px/1.25 var(--kb-ui); letter-spacing: .16em; color: var(--kb-gold); text-transform: uppercase; padding-right: 20px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-		.row .tm { display: flex; align-items: center; gap: 18px; min-width: 0; }
-		.row .tm.a { flex-direction: row-reverse; text-align: right; }
-		.row .nm { flex: 1; min-width: 0; font: 400 calc(var(--h) * .36) / 1.35 var(--kb-display); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.row .nm.tbd { color: var(--kb-muted); }
-		.row .mid { text-align: center; font: 400 calc(var(--h) * .5) / 1 var(--kb-display); white-space: nowrap; }
-		.row .mid .vs { font-size: .6em; color: var(--kb-gold); letter-spacing: .06em; }
-		.row .mid .w { color: var(--kb-gold-hi); text-shadow: 0 0 16px rgba(245, 196, 69, .35); }
-		.row .mid .l { color: var(--kb-muted); }
-		.row .mid i { font-style: normal; color: var(--kb-muted); font-size: .55em; margin: 0 10px; vertical-align: middle; }
-		.row .tm.lose .nm { color: var(--kb-muted); }
-		.row .tm.lose .sc-logo { opacity: .5; filter: grayscale(.6); }
-		.row .st { justify-self: end; font: 700 15px var(--kb-ui); letter-spacing: .2em; text-transform: uppercase; padding: 8px 18px; border-radius: 8px; white-space: nowrap; }
-		.st.done { color: var(--kb-muted); border: 1px solid rgba(142, 154, 200, .35); }
-		.st.upcoming { color: var(--kb-blue-hi); border: 1px solid rgba(94, 196, 255, .55); }
-		.st.live { background: var(--kb-red); color: #fff; }
-
-		.row.done { background: linear-gradient(90deg, rgba(17, 24, 69, .7), rgba(4, 6, 26, .8)); }
-		.row.done::before { background: var(--kb-gold-dim); }
-		.row.done .time { color: var(--kb-muted); }
-		.row.live { border-color: rgba(255, 70, 85, .7); background: linear-gradient(90deg, rgba(255, 70, 85, .2), rgba(27, 35, 102, .82) 40%, rgba(10, 15, 46, .9)); }
-		.row.live::after { content: ''; position: absolute; inset: 0; pointer-events: none; animation: sc-pulse-inset 2s ease-in-out infinite; }
-		.row.live::before { background: var(--kb-red); box-shadow: 0 0 16px var(--kb-red); }
-		.row.live .time { color: #fff; }
-
-		#empty { position: absolute; left: 0; right: 0; top: 560px; text-align: center; font: 400 56px var(--kb-display); color: var(--kb-muted); text-transform: uppercase; display: none; }
-	</style>
+<meta charset="utf-8">
+<title>KB SERIES · Planning (scène)</title>
+<!--
+	Scène de fond « Planning » de stream.html : même planning et même habillage que l'overlay plein écran planning.html
+	(shared/planning-view.js + planning.css), toujours affichée (c'est stream.html qui la montre ou la cache).
+	Replicants lus : planning, bracket, teams, tournament, scenesTexts. Contenu réglé dans le panneau Planning.
+-->
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/planning.css">
 </head>
 <body>
-	<div class="sc-stage" id="stage">
-		<div class="kb-bg"><div class="kb-bg__art"></div><div class="kb-bg__stars"></div><div class="kb-bg__grid"></div></div>
-		<div class="kb-frame sc-frame" style="top:28px !important"></div>
-
-		<div id="header">
-			<img class="sc-kbs kb-anim kb-anim--pop" id="kbs" style="--i:0" alt="KB SERIES">
-			<div id="htext">
-				<div class="kb-kicker kb-anim kb-anim--left" id="kicker" style="--i:1"></div>
-				<div class="kb-title sc-wipe" id="title" style="--i:2"><span class="sc-gleam" id="titleText"></span></div>
-			</div>
-			<div id="when" class="kb-anim kb-anim--right" style="--i:3"><div class="d" id="whenDates"></div><div class="kb-label" id="whenPlace"></div></div>
-		</div>
-		<div class="kb-rule kb-anim" id="rule" style="--i:3"></div>
-
-		<div id="list"></div>
-		<div id="empty">Planning à venir</div>
-	</div>
-
-	<script src="../shared/kb.js"></script>
-	<script src="../shared/scenes.js"></script>
-	<script>
-		const S = KBScenes, $ = KB.$, esc = KB.esc;
-		const stage = $('#stage');
-		$('#kbs').src = KB.img.kbs;
-		S.ambient(stage);
-		S.shineLogo($('#kbs'));
-		let firstRender = true;
-
-		function rowHTML(r, i, h, anim) {
-			const a = KB.team(r.teamA), b = KB.team(r.teamB);
-			const st = ['done', 'live', 'upcoming'].includes(r.status) ? r.status : 'upcoming';
-			const sa = Number(r.scoreA) || 0, sb = Number(r.scoreB) || 0;
-			const showScore = st !== 'upcoming';
-			const wa = st === 'done' && sa > sb, wb = st === 'done' && sb > sa;
-			const logo = Math.round(h * .62);
-			const side = (team, cls, lose) => `<div class="tm ${cls} ${lose ? 'lose' : ''}"><div class="sc-logo">${KB.teamLogo(team, logo)}</div><div class="nm ${team ? '' : 'tbd'}">${esc(S.teamName(team))}</div></div>`;
-			const mid = showScore
-				? `<span class="${wa ? 'w' : wb ? 'l' : ''}">${sa}</span><i>–</i><span class="${wb ? 'w' : wa ? 'l' : ''}">${sb}</span>`
-				: '<span class="vs">VS</span>';
-			const pill = st === 'live' ? '<span class="st live sc-live">En cours</span>' : `<span class="st ${st}">${S.statusLabel(st)}</span>`;
-			return `<div class="row ${st} ${anim ? 'kb-anim kb-anim--left' : ''}" style="--i:${4 + i}">
-				<span class="time">${esc(r.time || '—')}</span>
-				<span class="lbl">${esc(r.label || '')}</span>
-				${side(a, 'a', wb)}
-				<div class="mid">${mid}</div>
-				${side(b, 'b', wa)}
-				${pill}
-			</div>`;
-		}
-
-		function render() {
-			const tx = S.texts().schedule, t = S.tournament();
-			$('#kicker').textContent = [tx.kicker, t.name && t.edition ? `${t.name} · ${t.edition}` : t.name].filter(Boolean).join('  ·  ');
-			S.setText($('#titleText'), tx.title || S.DEFAULT_TEXTS.schedule.title);
-			S.setText($('#whenDates'), t.dates || '');
-			$('#whenPlace').textContent = t.location || '';
-			const rows = KB.rep.schedule.value || [];
-			const n = rows.length;
-			const avail = 1080 - 252 - 66;
-			const gap = n > 7 ? 8 : 12;
-			const h = Math.max(54, Math.min(100, Math.floor((avail - gap * (n - 1)) / Math.max(n, 1))));
-			const list = $('#list');
-			list.style.setProperty('--h', h + 'px');
-			list.style.setProperty('--gap', gap + 'px');
-			list.innerHTML = rows.map((r, i) => rowHTML(r, i, h, firstRender)).join('');
-			// Lignes modifiées depuis le dernier rendu → balayage doré + pop du score/statut
-			KB.$$('.row', list).forEach((el, i) => {
-				const r = rows[i];
-				if (S.changed('row' + i, [r.time, r.label, r.teamA, r.teamB, r.status, r.scoreA, r.scoreB]) && !firstRender) { el.insertAdjacentHTML('beforeend', '<i class="sc-rowflash"></i>'); KB.$$('.mid, .st', el).forEach(S.bump); }
-				if (r.status === 'live') el.insertAdjacentHTML('beforeend', '<i class="sc-ls"></i>');
-			});
-			KB.$$('.nm', list).forEach((el) => KB.fit(el, { min: 20 }));
-			$('#empty').style.display = n ? 'none' : 'block';
-			firstRender = false;
-		}
-
-		KB.watch(['tournament', 'teams', 'schedule', S.rep], render);
-		S.enter(stage);
-		document.fonts.ready.then(() => KB.$$('#list .nm').forEach((el) => KB.fit(el, { min: 20 })));
-	</script>
+<script src="../shared/kb.js"></script>
+<script src="../shared/scenes.js"></script>
+<script src="../shared/bracket.js"></script>
+<script src="../shared/planning.js"></script>
+<script src="../shared/planning-view.js"></script>
+<script>KBPV.mount({ mode: 'scene' });</script>
 </body>
 </html>

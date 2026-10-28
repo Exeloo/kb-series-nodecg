@@ -130,22 +130,36 @@ Le veto remplit tout seul la liste des maps du match, au fil des picks et du dec
 
 ## 2. ÉCRANS & TOURNOI
 
-### Écrans (attente, pause, fin, planning)
+### Planning de la journée
+Un seul planning, affiché par l'overlay plein écran **Planning** (bouton **AFFICHER**, aussi dans la Régie et Companion) et par la scène de fond **Planning** de la Régie.
+- **À l'antenne** : **Planning** avec **AFFICHER** / **● À L'ANTENNE**.
+- **Journée** : **Début du 1er créneau** et **Durée par défaut d'un match** (60 min) : les heures des créneaux se calculent seules. **Sur-titre** et **Titre** de l'écran.
+- **Match en cours sur le stream** : le match suivi, **Arrêter le suivi**.
+- **Matchs** : **+ Match de poules**, **+ Quarts de finale (4)** (deux par créneau, un seul sur le stream), **+ Demi-finales (2)**, **+ Petite finale**, **+ Grande finale**, **+ Pause** ajoutent des créneaux à la suite ; **Resserrer les créneaux** supprime les trous.
+- **Un bloc par créneau** (heure de début et de fin) : ↑ ↓ l'échangent avec le créneau voisin, **☕ Pause après** insère une pause juste derrière (les créneaux suivants reculent), **+ En parallèle** ajoute un match joué en même temps.
+- **Pause** : nom (« Pause déjeuner »…) et durée en minutes ; elle prend tout son créneau, qui dure sa durée au lieu d'un match : les heures des créneaux suivants (et du bracket) sont décalées d'autant. Elle s'affiche sur le planning (bandeau avec son nom et sa durée), pas sur les écrans Pause / Fin ni dans le lower third « Prochain match ».
+- **Un bloc par match** : phase, match du bracket (QF1…QF4, DF1, DF2) ou groupe (poules), format, durée (**min** : vide = durée par défaut ; un créneau dure son match le plus long, les suivants sont décalés), **Sur le stream**, créneau (le changer déplace le match), équipes, scores, statut, **▶ Lancer**, ✕ (2 clics).
+  - **Quarts, demies, petite et grande finale** sont liés au **Bracket** : équipes, scores, statut et vainqueur sont les mêmes des deux côtés, et les qualifiés avancent seuls. L'heure du créneau est recopiée dans le bracket.
+  - **Matchs de poules** : avec un groupe, leurs résultats calculent le classement de ce groupe (victoires, défaites, rounds) ; sans groupe, ils ne comptent pas.
+  - **▶ Lancer** : le match devient le match en cours (panneau **Match** : équipes, phase, format ; maps et veto remis à zéro si l'affiche change, sauvegarde avant) et passe « En cours » et « Sur le stream ». Ensuite, le score de série du panneau **Match** (rounds pour un BO1 de poules) revient tout seul dans le planning, le bracket et le classement. Changer d'affiche à la main dans **Match** arrête le suivi.
+- **Alertes** : match du bracket présent deux fois, deux matchs sur le stream dans le même créneau, équipe qui joue deux matchs en même temps.
+
+### Écrans (attente, pause, fin)
 - **À l'antenne : …** (en haut) : scène de fond actuellement diffusée. Elle se change dans la Régie.
 - **Compte à rebours** : **Texte au-dessus (écran d'attente)** ; **Lancer (minutes)** ou **Jusqu'à cette heure** ; **−1 min**, **+1 min**, **+5 min**, **+10 min** ; **Réinitialiser** l'arrête ; **Message à zéro**. Le même compte à rebours sert à l'écran d'attente et à la pause.
 - **Écran d'attente (starting)**, **Pause (brb)**, **Fin de stream (ending)** : textes de chaque écran (enregistrés en tapant).
 - **Rotation en bas de la pause** : éléments affichés à tour de rôle (texte libre, prochain match, planning à venir, score de la série, infos tournoi) : case pour activer, durée, ↑ ↓, ✕ (2 clics), **+ Ajouter**, **Rotation par défaut** (2 clics).
-- **Planning** : sur-titre et titre de l'écran ; un bloc par match (heure, libellé, deux équipes, statut, score en maps gagnées) ; **+ Ajouter un match**, **Trier par heure**, ✕ (2 clics). Les matchs « Terminé » apparaissent dans les résultats de l'écran de fin.
+- Le planning (affiché aussi par la pause, la fin et le lower third « Prochain match ») se règle dans **Planning de la journée**.
 - **Infos tournoi** : nom, présenté par, édition, sous-titre, dates, hashtag, lieu, repris par les écrans.
 - **Aperçus** : liens qui ouvrent chaque écran dans un nouvel onglet.
 
 ### Bracket & Groupes
 - **Affichage** : **Groupes** et **Bracket** avec **AFFICHER** / **● À L'ANTENNE** ; case **Mettre en avant le match en cours (LIVE)**.
 - **Actions** : **Remplir les quarts depuis les groupes** (2 clics si des quarts sont déjà joués) ; **Réinitialiser** vide groupes et phase finale (2 clics, sauvegarde automatique avant).
-- **Phase de groupes** : nombre de qualifiés par groupe (en or) ; pour chaque groupe, équipes, victoires, défaites, rounds gagnés et perdus. Classement et différence se calculent seuls. **+ Équipe**, **+ Ajouter un groupe**, ✕ sur un groupe (2 clics).
-- **Phase finale** : pour chaque match, libellé, heure, statut, équipes, scores, bouton **V** (vainqueur). Les vainqueurs avancent seuls ; les perdants des demi-finales vont en petite finale.
+- **Phase de groupes** : nombre de qualifiés par groupe (en or) ; pour chaque groupe, équipes, victoires, défaites, rounds gagnés et perdus. Classement et différence se calculent seuls. Un groupe qui a des matchs de poules dans le **Planning** prend son classement de leurs résultats (champs grisés). **+ Équipe**, **+ Ajouter un groupe**, ✕ sur un groupe (2 clics).
+- **Phase finale** : pour chaque match, libellé, heure (fixée par le **Planning** si le match y est), statut, équipes, scores, bouton **V** (vainqueur). Les vainqueurs avancent seuls ; les perdants des demi-finales vont en petite finale.
 
-Le bracket, le planning et le match en cours sont indépendants : un score saisi dans **Match** n'est pas recopié dans le planning ni dans le bracket.
+Le planning, le bracket et le match en cours sont liés : un match de phase finale du planning est le même que celui du bracket, et le match lancé depuis le planning y renvoie son score. Un match saisi à la main dans **Match** sans passer par **▶ Lancer** n'est recopié nulle part.
 
 ---
 

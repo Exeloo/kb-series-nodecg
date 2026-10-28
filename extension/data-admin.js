@@ -10,6 +10,7 @@ const LIVE = require('../shared/live.js');
 const KBM = require('../shared/maps.js');
 const KBP = require('../shared/player.js');
 const KBB = require('../shared/bracket.js');
+const KBPlan = require('../shared/planning.js');
 const { MATCH_DEFAULTS } = require('../shared/match.js');
 const { DEFAULT_TEXTS, DEFAULT_ROTATION } = require('../shared/scenes.js');
 const { clone, hideAll } = require('./lib/backup');
@@ -18,10 +19,10 @@ const GROUPS = {
 	teams: ['teams'],
 	players: ['playerData', 'playerProfiles'],
 	match: ['match', 'veto', 'matchVeto'],
-	schedule: ['schedule', 'countdown'],
+	schedule: ['planning', 'schedule', 'countdown'],
 	bracket: ['bracket'],
 	texts: ['scenesTexts', 'scenesRotation', 'tournament', 'casters', 'liveTicker'],
-	overlays: ['liveLowerThird', 'matchGraphics', 'mapsGraphics', 'playerStatsGraphic', 'playerDuel', 'bracketGraphics', 'streamScene', 'liveDualCam', 'liveReplayBug'],
+	overlays: ['liveLowerThird', 'matchGraphics', 'mapsGraphics', 'playerStatsGraphic', 'playerDuel', 'bracketGraphics', 'streamScene', 'liveDualCam', 'liveReplayBug', 'planningGraphic'],
 };
 
 module.exports = function (nodecg, listen, backup) {
@@ -43,6 +44,7 @@ module.exports = function (nodecg, listen, backup) {
 			case 'playerStatsGraphic': return clone(KBP.STATS_DEFAULT);
 			case 'playerDuel': return clone(KBP.DUEL_DEFAULT);
 			case 'mapsGraphics': return clone(KBM.DEFAULT);
+			case 'planning': return clone(KBPlan.DEFAULT);
 			// Lower thirds et étiquettes du 50/50 sont des textes : vidés seulement avec le groupe « texts »
 			case 'liveLowerThird': return opts.texts ? clone(LIVE.defaults.liveLowerThird) : cur && hideAll(clone(cur));
 			case 'liveDualCam': {

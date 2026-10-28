@@ -27,6 +27,7 @@
 		{ id: 'map-result', label: 'Résultat de map', group: 'Maps', rep: 'mapsGraphics', path: ['result', 'visible'], fullscreen: true },
 		{ id: 'player-stats', label: 'Stats joueur', group: 'Joueurs', rep: 'playerStatsGraphic', path: ['visible'], fullscreen: true, needs: (v) => !!v.playerId },
 		{ id: 'player-duel', label: 'Duel', group: 'Joueurs', rep: 'playerDuel', path: ['visible'], fullscreen: true, needs: (v) => !!(v.left || v.right) },
+		{ id: 'planning', label: 'Planning', group: 'Tournoi', rep: 'planningGraphic', path: ['visible'], fullscreen: true },
 		{ id: 'groups', label: 'Groupes', group: 'Tournoi', rep: 'bracketGraphics', path: ['groups', 'visible'], fullscreen: true },
 		{ id: 'bracket', label: 'Bracket', group: 'Tournoi', rep: 'bracketGraphics', path: ['bracket', 'visible'], fullscreen: true },
 	];

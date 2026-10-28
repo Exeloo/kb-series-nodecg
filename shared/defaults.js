@@ -51,7 +51,8 @@
 
 		casters: () => [{ name: 'Host', handle: '', role: 'host' }, { name: 'Caster 1', handle: '', role: 'caster' }, { name: 'Caster 2', handle: '', role: 'caster' }], // role : caster | host (LIVE.ROLES)
 
-		// Planning : [{ time, label, teamA, teamB, status: 'upcoming'|'live'|'done', scoreA, scoreB }]
+		// Planning à plat, CALCULÉ par extension/planning.js depuis le replicant `planning` (KBP.legacy, shared/planning.js) : ne pas l'écrire.
+		// [{ id, time, end, label, phase, slot, format, teamA, teamB, status: 'upcoming'|'live'|'done', scoreA, scoreB, streamed, current }]
 		schedule: () => [],
 
 		// Compte à rebours partagé : endsAt = timestamp ms, ou null

@@ -1,9 +1,10 @@
 // Données de TEST pour répéter avant le direct (bouton « Charger des données de test » du panneau Données) :
-// match en cours, scores, veto, agents joués, planning, bracket cohérent, compte à rebours.
+// match en cours, scores, veto, agents joués, planning de la phase finale (lié au bracket), bracket cohérent, compte à rebours.
 // Ne crée AUCUN joueur : garde les vraies équipes et leurs joueurs, ajoute seulement des équipes adverses vides si besoin.
 // Une sauvegarde complète est écrite avant. Message : 'data:testData' → { backup }
 const D = require('../shared/defaults.js');
 const KBB = require('../shared/bracket.js');
+const KBPlan = require('../shared/planning.js');
 const { clone } = require('./lib/backup');
 
 // Équipes adverses (sans joueurs) ajoutées pour atteindre 8 équipes
@@ -63,27 +64,17 @@ module.exports = function (nodecg, listen, backup) {
 			],
 		};
 
-		rep('schedule').value = [
-			{ time: '10:00', label: 'Quart de finale 1', teamA: A, teamB: t6, status: 'done', scoreA: 2, scoreB: 0 },
-			{ time: '10:00', label: 'Quart de finale 2', teamA: t3, teamB: t8, status: 'done', scoreA: 2, scoreB: 1 },
-			{ time: '11:30', label: 'Quart de finale 3', teamA: B, teamB: t7, status: 'done', scoreA: 2, scoreB: 1 },
-			{ time: '11:30', label: 'Quart de finale 4', teamA: t4, teamB: t5, status: 'done', scoreA: 1, scoreB: 2 },
-			{ time: '14:00', label: 'Demi-finale 1', teamA: A, teamB: B, status: 'live', scoreA: 1, scoreB: 0 },
-			{ time: '15:30', label: 'Demi-finale 2', teamA: t3, teamB: t5, status: 'upcoming' },
-			{ time: '17:00', label: 'Petite finale', teamA: null, teamB: null, status: 'upcoming' },
-			{ time: '18:30', label: 'Grande finale', teamA: null, teamB: null, status: 'upcoming' },
-		];
 		const label = (rep('countdown').value || {}).label || D.COUNTDOWN_LABEL;
 		rep('countdown').value = { endsAt: Date.now() + 10 * 60 * 1000, label };
 
 		// Bracket cohérent avec le planning
-		const row = (id, w, l, rw, rl) => ({ id, w, l, rw, rl });
+		const standing = (id, w, l, rw, rl) => ({ id, w, l, rw, rl });
 		const m = KBB.emptyMatch;
 		const bk = KBB.defaultBracket();
 		bk.qualify = 4;
 		bk.groups = [
-			{ name: 'Groupe A', teams: [row(A, 3, 0, 39, 21), row(t4, 2, 1, 34, 30), row(t7, 1, 2, 29, 35), row(t8, 0, 3, 22, 38)].filter((t) => t.id) },
-			{ name: 'Groupe B', teams: [row(t3, 3, 0, 39, 25), row(B, 2, 1, 36, 28), row(t5, 1, 2, 30, 33), row(t6, 0, 3, 20, 39)].filter((t) => t.id) },
+			{ name: 'Groupe A', teams: [standing(A, 3, 0, 39, 21), standing(t4, 2, 1, 34, 30), standing(t7, 1, 2, 29, 35), standing(t8, 0, 3, 22, 38)].filter((t) => t.id) },
+			{ name: 'Groupe B', teams: [standing(t3, 3, 0, 39, 25), standing(B, 2, 1, 36, 28), standing(t5, 1, 2, 30, 33), standing(t6, 0, 3, 20, 39)].filter((t) => t.id) },
 		];
 		bk.playoffs = {
 			quarters: [
@@ -98,6 +89,13 @@ module.exports = function (nodecg, listen, backup) {
 		};
 		KBB.propagate(bk);
 		rep('bracket').value = bk;
+
+		// Planning de la phase finale, lié au bracket (créneaux d'une heure, deux quarts en parallèle dont un seul diffusé) ;
+		// la demi-finale 1 est le match en cours. Heures et liste `schedule` calculées par extension/planning.js
+		const plan = (slot, phase, ref, streamed) => KBPlan.newRow(phase, { slot, ref, streamed });
+		const rows = [plan(0, 'quarter', 0, true), plan(0, 'quarter', 2, false), plan(1, 'quarter', 1, true), plan(1, 'quarter', 3, false),
+			plan(2, 'semi', 0, true), plan(3, 'semi', 1, true), plan(4, 'third', 0, true), plan(5, 'final', 0, true)];
+		rep('planning').value = { ...KBPlan.DEFAULT, start: '10:00', duration: 60, current: rows[4].id, matches: rows };
 
 		nodecg.log.info(`Données de test chargées — sauvegarde : ${file}`);
 		return { backup: backup.relative(file) };

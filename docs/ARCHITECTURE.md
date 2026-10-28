@@ -27,6 +27,7 @@ extension/               serveur du bundle
   veto-teams.js          liens de veto envoyés aux équipes : routes HTTP, contrôle des tours (+ static/veto-team.html)
   companion.js           API HTTP à jeton pour Bitfocus Companion (docs/COMPANION.md)
   live.js maps.js match.js player.js bracket.js scenes.js   replicants et logique de chaque partie
+  planning.js            planning de la journée : heures et classement des groupes recopiés dans le bracket, liste `schedule`, score du match en cours
   data-admin.js          réinitialisation par catégories, liste et restauration des sauvegardes
   data-transfer.js       export / import d'un fichier complet (données + assets en base64)
   test-data.js           données de test (aucun joueur créé)
@@ -57,7 +58,9 @@ Les replicants sont persistés par NodeCG dans `db/` (sauf mention). « Défaut 
 | `playerData` | Fiches saisies à la main (priment), clé = riotId en minuscules | `state.js` (migre l'ancien `playerPhotos`) | Équipes & Joueurs | via `KB.player` | `shared/defaults.js` |
 | `playerProfiles` | Profils tracker.gg normalisés (dont `roles` : stats par rôle, plus joué d'abord). Un profil sans `roles` (import ancien) est re-normalisé au démarrage depuis son JSON brut de `db/tracker/` | `tracker.js` (route d'import, démarrage) | Équipes & Joueurs, Stats Joueur (suppression) | via `KB.player` | `shared/defaults.js` |
 | `casters` | Intervenants `[{ name, handle, role }]`, `role` : `caster` \| `host` (absent = caster) | `state.js` | Lower thirds, Régie | lower-third (source « caster ») | `shared/defaults.js` |
-| `schedule` | Planning du jour | `state.js`, `test-data.js` | Écrans | schedule, starting, brb, ending | `shared/defaults.js` |
+| `planning` | Planning de la journée `{ start, duration, current, matches }` : créneaux, phase, lien bracket (`ref`) ou groupe, équipes / scores des poules, diffusion, format ; pauses (`phase: 'break'`, `label`, `minutes`) ; `minutes` d'un match = sa durée (sinon `duration`) : un créneau dure son match ou sa pause le plus long | `planning.js`, `test-data.js` | Planning | planning, schedule (via `KBPV`) | `shared/planning.js` (`KBPlan.DEFAULT`) |
+| `planningGraphic` | `{ visible }` : overlay plein écran Planning | `planning.js` | Planning, Régie (via `KBO`) | planning | `shared/planning.js` (`KBPlan.GRAPHIC_DEFAULT`) |
+| `schedule` | Planning à plat, **calculé** par `planning.js` (`KBPlan.legacy`) : ne pas l'écrire | `state.js`, `planning.js` | — | starting, brb, ending, lower third « Prochain match » | `shared/defaults.js` |
 | `countdown` | `{ endsAt, label }` | `state.js`, `test-data.js` | Écrans | starting, brb | `shared/defaults.js` |
 | `streamScene` | Scène de fond de `stream.html` + mode de passage | `state.js`, `lib/backup.js` (remise sur « none ») | Régie | stream | `shared/defaults.js` |
 | `transition` | Déclencheur du stinger `{ at, map, kind, style? }` (`kind` : `logo` \| `map` \| `replay`, absent = déduit de `map` — `KBM.trKind` ; `style` : préréglage joué pour cette fois, `KBM.trStyle`, API Companion) | `state.js` | Régie, Maps & Transitions, API Companion | transition | `shared/defaults.js` |
@@ -91,7 +94,9 @@ Les sauvegardes, l'export et l'import portent sur la liste `NAMES` de `extension
 | `maps:exportStinger` | `{ map, kind }` | `{ started: true }` ; progression dans `mapsExport` | `maps.js` |
 | `bracket:reset` | — | `{ backup }` | `bracket.js` |
 | `bracket:fillQuarters` | — | `[[a, b] ×4]` | `bracket.js` |
-| `data:clearAll` | `{ teams, players, match, schedule, bracket, overlays, texts }` (booléens) | `{ backup }` | `data-admin.js` |
+| `planning:start` | `{ id }` | `{ title, reset }` : match chargé dans `match` (maps et veto remis à zéro si l'affiche change, sauvegarde avant) et suivi | `planning.js` |
+| `planning:stop` | — | `{ stopped }` | `planning.js` |
+| `data:clearAll` | `{ teams, players, match, schedule (planning + compte à rebours), bracket, overlays, texts }` (booléens) | `{ backup }` | `data-admin.js` |
 | `data:backups` | — | noms de fichiers, plus récent d'abord | `data-admin.js` |
 | `data:restore` | `{ file }` | `{ backup }` | `data-admin.js` |
 | `data:testData` | — | `{ backup }` | `test-data.js` |
@@ -134,10 +139,12 @@ Une erreur levée dans un handler est renvoyée au panneau comme message d'erreu
 | `KBMatch` | `match.js` | Préréglages de veto, `MATCH_DEFAULTS`, état du veto, phases. UMD. |
 | `KBScenes` | `scenes.js` | Écrans de fond : `DEFAULT_TEXTS`, `DEFAULT_ROTATION`, `ROTATION_TYPES`, helpers (compte à rebours, prochain match, ambiance). UMD (côté Node : les seules constantes). |
 | `KBP` | `player.js` | Défauts `STATS_DEFAULT`, `DUEL_DEFAULT`, vues de la fiche (`VIEWS`, `view`), lignes du tableau par rôle (`ROLE_KEYS`, `roleRows`), stats du duel, particules. UMD. |
+| `KBPlan` | `planning.js` | Planning : `DEFAULT`, `PHASES`, `normalize`, heures des créneaux, lien bracket (`bracketPath`, `bracketMatch`), `resolve` / `view` / `slots`, `legacy` (liste `schedule`), `groupStandings`, `fromLegacy`. UMD, utilisé aussi par le serveur. |
+| `KBPV` | `planning-view.js` | Rendu du planning (`mount({ mode: 'overlay' \| 'scene' })`), commun à `planning.html` et `schedule.html`, avec `planning.css`. |
 | `KBB` | `bracket.js` | Bracket : `defaultBracket`, `emptyMatch`, `standings`, `propagate`, `quarterPairs`, `GRAPHICS_DEFAULT`. UMD, utilisé aussi par le serveur. |
 | `LIVE` | `live.js` | Défauts `live*`, emplacements (`SIDES`), rôles des intervenants (`ROLES`), styles et presets automatiques des lower thirds, géométrie du 50/50 (`dualFrames`). UMD. |
 
-Feuilles de style : `theme.css` (overlays, importe `fonts.css`), `dashboard.css` (panneaux), `maps.css`, `match.css`, `scenes.css` (par partie). Ordre de chargement dans un panneau : `kb.js` → modules de partie → `dash.js` → `overlay-list.js` → `overlays.js` → `lt-form.js`.
+Feuilles de style : `theme.css` (overlays, importe `fonts.css`), `dashboard.css` (panneaux), `maps.css`, `match.css`, `scenes.css`, `planning.css` (par partie). Ordre de chargement dans un panneau : `kb.js` → modules de partie → `dash.js` → `overlay-list.js` → `overlays.js` → `lt-form.js`.
 
 ## Conventions de code
 - Tabulations, guillemets simples, points-virgules, style compact existant (`.editorconfig`). Pas de reformatage en masse.

@@ -131,8 +131,16 @@
         "workspace": "1. Match & Joueurs"
       },
       {
+        "name": "planning",
+        "title": "Planning de la journée",
+        "file": "planning.html",
+        "width": 6,
+        "headerColor": "#2b2fb5",
+        "workspace": "2. Écrans & Tournoi"
+      },
+      {
         "name": "scenes",
-        "title": "Écrans (attente, pause, fin, planning)",
+        "title": "Écrans (attente, pause, fin)",
         "file": "scenes.html",
         "width": 4,
         "headerColor": "#2b2fb5",
@@ -185,6 +193,11 @@
       },
       {
         "file": "schedule.html",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "file": "planning.html",
         "width": 1920,
         "height": 1080
       },

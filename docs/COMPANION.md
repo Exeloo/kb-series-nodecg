@@ -65,6 +65,7 @@ Toutes ces URL sont à mettre dans une action **POST** (elles viennent après l'
 | Résultat de map | `/overlay/map-result/toggle` |
 | Stats joueur | `/overlay/player-stats/toggle` |
 | Duel | `/overlay/player-duel/toggle` |
+| Planning | `/overlay/planning/toggle` |
 | Groupes | `/overlay/groups/toggle` |
 | Bracket | `/overlay/bracket/toggle` |
 | Ticker | `/overlay/ticker/toggle` |
@@ -169,6 +170,7 @@ Une interrogation par seconde ne coûte rien à la régie. Évite tout de même 
 | `map-result` | Résultat de map | oui |
 | `player-stats` | Stats joueur | oui |
 | `player-duel` | Duel | oui |
+| `planning` | Planning de la journée | oui |
 | `groups` | Groupes | oui |
 | `bracket` | Bracket | oui |
 

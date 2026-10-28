@@ -73,7 +73,7 @@ Panneau **Données** → **4. Réinitialiser** : coche les catégories, puis **R
 | Équipes | Toutes les équipes. |
 | Joueurs (fiches, stats) | Fiches joueurs et profils tracker.gg (les réponses brutes de `db/tracker/` restent sur le disque). |
 | Match en cours et veto | Match (maps, scores, agents), veto, format et pool du veto. |
-| Planning et compte à rebours | Planning ; compte à rebours arrêté (son texte est gardé). |
+| Planning et compte à rebours | Planning de la journée (matchs, créneaux, match suivi) ; compte à rebours arrêté (son texte est gardé). Le bracket n'est pas touché. |
 | Bracket | Groupes et phase finale. |
 | Textes (écrans, ticker, casters, lower thirds) | Textes des écrans et rotation de la pause remis par défaut, liste du host et des casters vidée, messages du ticker vidés, textes des lower thirds et étiquettes du 50/50 remis à zéro. |
 | Overlays (tout masquer, réglages d'affichage) | Tous les overlays masqués, scène sur **Jeu**, choix d'affichage remis à zéro (joueur des stats, duel, map et MVP des écrans maps). |

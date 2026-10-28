@@ -9,7 +9,7 @@ Pour le régisseur : la checklist à imprimer, de la veille au soir jusqu'à la 
 - [ ] **Photos** (si tu en as) : **ASSETS** → « Photos joueurs » ; puis fiche du joueur → **Photo**.
 - [ ] **Profils manquants** : panneau **Stats Joueur** → section **Profils manquants** vide (ou stats saisies à la main).
 - [ ] **Host et casters** : panneau **Lower thirds** → **Host et casters** (rôle, nom, pseudo) → **Enregistrer** ; vérifie la répartition du **Plateau** (gauche / centre / droite).
-- [ ] **Planning** : panneau **Écrans** → **Planning** (heures, équipes) → **Trier par heure**.
+- [ ] **Planning** : panneau **Planning de la journée** → heure de début, matchs de chaque créneau, phases, **Sur le stream** (un par créneau).
 - [ ] **Infos tournoi** et textes des écrans : panneau **Écrans**.
 - [ ] **Bracket** : panneau **Bracket & Groupes** (groupes, équipes, quarts).
 - [ ] **Copie de sécurité** : panneau **Données** → **⬇ Exporter mes données**. Range le fichier hors du PC (clé USB, cloud).
@@ -44,7 +44,8 @@ Pour le régisseur : la checklist à imprimer, de la veille au soir jusqu'à la 
 10. **Résultat** : panneau **Maps & Transitions** → **Résultat de map** (map en « Auto », choisis le **MVP**) → **AFFICHER**.
 11. **Pause** : **Régie** → transition vers la scène **Pause** (relance le compte à rebours dans le panneau **Écrans** si besoin).
 12. **Map suivante** : panneau **Match** → **Définir en cours** sur la map suivante, agents de cette map, puis reprends à l'étape 6.
-13. **Fin du match** : mets à jour le **Planning** (statut **Terminé**, score) et le **Bracket** (scores, bouton **V**) : ils ne se remplissent pas tout seuls.
+13. **Fin du match** : si le match a été lancé depuis le **Planning** (**▶ Lancer**), rien à faire : son score, le bracket et le classement se mettent à jour seuls, le match passe « Terminé » quand la série est gagnée. Sinon, mets-les à jour à la main. Pour le match suivant : **▶ Lancer** dans le **Planning**.
+   Les matchs joués hors stream : saisis leur score dans le **Planning** (ou le **Bracket** pour la phase finale).
 
 ## Fin de journée
 - [ ] Planning à jour (les matchs « Terminé » s'affichent sur l'écran de fin).

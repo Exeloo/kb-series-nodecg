@@ -20,6 +20,7 @@ module.exports = function (nodecg) {
 		['match', () => require('./match')(nodecg)],
 		['veto-teams', () => require('./veto-teams')(nodecg, listen)],   // pages de veto envoyées aux équipes
 		['bracket', () => require('./bracket')(nodecg, listen, backup)],
+		['planning', () => require('./planning')(nodecg, listen, backup)], // planning de la journée (lié au bracket, au match en cours)
 		['data-admin', () => require('./data-admin')(nodecg, listen, backup)],
 		['test-data', () => require('./test-data')(nodecg, listen, backup)],
 		['data-transfer', () => require('./data-transfer')(nodecg, listen, backup)],

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset="utf-8">
+	<title>Planning</title>
+	<!--
+		Panneau Planning : programme de la journée en créneaux (heure = début + créneau × durée d'un match, 1 h par défaut),
+		phase de chaque match (poules, quarts, demies, petite et grande finale), diffusé sur le stream ou non, lancement sur le stream.
+		Écrit `planning` (modèle : shared/planning.js), `scenesTexts.schedule` (titre et sur-titre) et, pour les matchs de phase finale,
+		le `bracket` (équipes, scores, statut : la ligne du planning ne fait que pointer vers son match du bracket).
+		Le serveur (extension/planning.js) recopie les heures dans le bracket, calcule le classement des groupes depuis les matchs de poules,
+		tient à jour la liste `schedule` des autres écrans et reporte le score du match en cours.
+		Messages : planning:start { id }, planning:stop. Overlay plein écran « Planning » via KBO.
+	-->
+	<link rel="stylesheet" href="../shared/dashboard.css">
+	<style>
+		.inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 10px; }
+		.inline label { margin-top: 0; }
+		.adds { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+		.adds button { flex: 0 0 auto; padding: 6px 10px; font-size: 12px; }
+		.slot { margin-top: 10px; border: 1px solid var(--line); border-radius: 6px; background: rgba(17, 24, 69, .5); }
+		.slot.live { border-color: var(--red); }
+		.shead { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+		.shead .t { font: 700 15px 'Segoe UI', sans-serif; color: var(--blue); font-variant-numeric: tabular-nums; }
+		.shead .n { font-size: 11px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+		.shead .sp { flex: 1; }
+		.shead button { padding: 4px 8px; font-size: 12px; }
+		.m { padding: 8px; border-top: 1px dashed var(--line); border-left: 3px solid var(--line); }
+		.m:first-of-type { border-top: 0; }
+		.m.live { border-left-color: var(--red); background: rgba(255, 70, 85, .06); }
+		.m.done { border-left-color: var(--gold); }
+		.m.upcoming { border-left-color: var(--blue); }
+		.m.current { box-shadow: inset 0 0 0 1px var(--red); }
+		.m .l1, .m .l2 { display: flex; gap: 6px; align-items: center; }
+		.m .l2 { margin-top: 6px; }
+		.m select, .m input { padding: 5px 6px; font-size: 13px; }
+		.m .w-phase { flex: 0 0 150px; } .m .w-ref { flex: 0 0 130px; } .m .w-fmt { flex: 0 0 70px; } .m .w-slot { flex: 0 0 112px; }
+		.m .w-st { flex: 0 0 110px; } .m .w-num { flex: 0 0 54px; text-align: center; }
+		.m .team { flex: 1; min-width: 0; }
+		.m .vs { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
+		.m .chk { margin: 0; font-size: 12px; flex: 0 0 auto; white-space: nowrap; }
+		.m .sp { flex: 1; }
+		.m button { padding: 5px 9px; font-size: 12px; flex: 0 0 auto; }
+		.m .lbl { font-weight: 700; font-size: 13px; color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+		.m .via { font-size: 11px; color: var(--muted); margin-top: 4px; }
+		.m.brk { border-left-color: var(--gold); background: rgba(201, 178, 116, .06); }
+		.m.brk .w-name { flex: 1; min-width: 0; } .m.brk .w-min { flex: 0 0 70px; text-align: center; }
+		.m.brk .ico { flex: 0 0 auto; font-size: 16px; }
+		.m .u { flex: 0 0 auto; color: var(--muted); font-size: 12px; margin-left: -2px; }
+		.m .w-dur { flex: 0 0 62px; text-align: center; }
+		.m .w-dur:placeholder-shown { color: var(--muted); }
+		.m .onair { color: var(--red); font-weight: 700; font-size: 11px; letter-spacing: .1em; }
+		.cur { display: flex; align-items: center; gap: 10px; }
+		.cur .what { flex: 1; min-width: 0; }
+		.cur .what b { display: block; }
+		.warn { margin-top: 6px; padding: 6px 8px; border-radius: 4px; border: 1px solid rgba(201, 178, 116, .45); background: rgba(201, 178, 116, .08); color: var(--gold); font-size: 12px; }
+		.warn:empty { display: none; }
+		.warn div + div { margin-top: 3px; }
+	</style>
+</head>
+<body>
+	<h3>À l'antenne</h3>
+	<div class="card" id="ovBox"></div>
+	<div class="hint">Le même planning est aussi la scène de fond <b>Planning</b> de la Régie.</div>
+
+	<h3>Journée</h3>
+	<div class="card">
+		<div class="inline">
+			<div><label for="start">Début du 1er créneau</label><input type="time" id="start"></div>
+			<div><label for="duration">Durée par défaut d'un match (min)</label><input type="number" id="duration" min="10" max="480" step="5"></div>
+			<div><label for="txKicker">Sur-titre</label><input id="txKicker" data-tx="kicker" placeholder="Programme du jour"></div>
+			<div><label for="txTitle">Titre</label><input id="txTitle" data-tx="title" placeholder="Planning"></div>
+		</div>
+		<div class="hint" id="summary"></div>
+	</div>
+
+	<h3>Match en cours sur le stream</h3>
+	<div class="card cur">
+		<div class="what" id="current"></div>
+		<button type="button" id="stop" class="shrink">Arrêter le suivi</button>
+	</div>
+	<div class="hint">« ▶ Lancer » charge le match dans le panneau <b>Match</b> (équipes, phase, format ; maps et veto remis à zéro si l'affiche change).
+		Ensuite son score de série revient tout seul ici, dans le bracket et dans le classement des groupes.</div>
+	<div class="msg box" id="msg"></div>
+
+	<h3>Matchs</h3>
+	<div class="adds">
+		<button type="button" data-add="pool">+ Match de poules</button>
+		<button type="button" data-add="quarter">+ Quarts de finale (4)</button>
+		<button type="button" data-add="semi">+ Demi-finales (2)</button>
+		<button type="button" data-add="third">+ Petite finale</button>
+		<button type="button" data-add="final">+ Grande finale</button>
+		<button type="button" data-add="break" title="Pause dans la journée : nom et durée au choix">+ Pause</button>
+		<button type="button" id="pack" title="Supprime les créneaux vides entre les matchs">Resserrer les créneaux</button>
+	</div>
+	<div class="hint">Chaque ajout prend un nouveau créneau à la suite ; « + En parallèle » ajoute un match joué en même temps ; « ☕ Pause après » insère une pause (nom et durée au choix, les créneaux suivants sont décalés). Chaque match peut avoir sa propre durée (champ « min », vide = durée par défaut) : un créneau dure son match le plus long. Les quarts sont joués deux par deux.
+		Quarts, demies et finales sont liés au <b>Bracket</b> : équipes, scores et vainqueurs y sont les mêmes, et les qualifiés avancent tout seuls.
+		Les matchs de poules d'un groupe calculent son classement (V / D, rounds).</div>
+	<div class="warn" id="warn"></div>
+	<div id="list"></div>
+
+	<script src="../shared/kb.js"></script>
+	<script src="../shared/scenes.js"></script>
+	<script src="../shared/bracket.js"></script>
+	<script src="../shared/planning.js"></script>
+	<script src="../shared/dash.js"></script>
+	<script src="../shared/overlay-list.js"></script>
+	<script src="../shared/overlays.js"></script>
+	<script>
+		const $ = (id) => document.getElementById(id);
+		const esc = KB.esc;
+		const P = KBPlan;
+		const planRep = nodecg.Replicant('planning', { defaultValue: KB.clone(P.DEFAULT) });
+		const bracketRep = nodecg.Replicant('bracket', { defaultValue: KBB.defaultBracket() });
+		const texts = KBScenes.rep;
+		const msg = (t, kind = 'ok') => KBD.flash('msg', t, kind, 5000);
+
+		KBO.bind('#ovBox');
+		KB.watch(KBO.repNames(), () => { $('ovBox').innerHTML = KBO.row('planning'); });
+
+		// ---------- Écriture ----------
+		const plan = () => P.normalize(planRep.value);
+		const savePlan = (p) => { planRep.value = P.normalize(p); };
+		const updateRow = (id, patch) => { const p = plan(); savePlan({ ...p, matches: p.matches.map((r) => (r.id === id ? { ...r, ...patch } : r)) }); };
+		// Match de phase finale : écrit dans le bracket (même règles que le panneau Bracket : vainqueur recalculé, propagation côté serveur)
+		function writeBracket(row, patch) {
+			const path = P.bracketPath(row);
+			const bk = KB.clone(bracketRep.value || KBB.defaultBracket());
+			const m = KBD.getPath(bk, path);
+			if (!m) return msg('Match du bracket introuvable : réinitialise le bracket ?', 'err');
+			Object.assign(m, patch);
+			if ('a' in patch || 'b' in patch) m.winner = null;
+			const a = +m.scoreA || 0, b = +m.scoreB || 0;
+			if (m.status === 'done') m.winner = a > b ? 'a' : b > a ? 'b' : null;
+			else m.winner = null;
+			bracketRep.value = bk;
+		}
+		const maxSlot = (p) => Math.max(-1, ...p.matches.map((r) => r.slot));
+
+		// ---------- Rendu ----------
+		const PHASE_OPTS = P.PHASE_ORDER.map((k) => [k, P.PHASES[k]]);
+		const opts = (list, v) => list.map(([k, l]) => `<option value="${esc(k)}"${String(k) === String(v) ? ' selected' : ''}>${esc(l)}</option>`).join('');
+		const teamOpts = (sel, row, side) => KBD.teamOptions(sel, { empty: row && P.isLinked(row) ? '— ' + P.placeholder(row, side) + ' —' : '— À déterminer —' });
+
+		function breakHtml(v, slotOpts) {
+			return `<div class="m brk" data-id="${esc(v.id)}">
+				<div class="l1">
+					<span class="ico" aria-hidden="true">☕</span>
+					<input class="w-name" data-f="label" value="${esc(v.label)}" placeholder="${esc(P.BREAK_DEFAULT.label)}" maxlength="60" aria-label="Nom de la pause">
+					<input type="number" class="w-min" data-f="minutes" value="${v.minutes}" min="5" max="480" step="5" aria-label="Durée de la pause (min)"><span class="u">min</span>
+					<span class="sp"></span>
+					<select class="w-slot" data-f="slot" aria-label="Créneau">${slotOpts(v.slot)}</select>
+					<button type="button" class="danger" data-act="del" title="Retirer du planning">✕</button>
+				</div>
+				<div class="via"><span class="lbl">Pause · ${v.time} – ${v.end}</span> · les créneaux suivants sont décalés de sa durée</div>
+			</div>`;
+		}
+
+		function rowHtml(p, v, bk, slotOpts) {
+			if (P.isBreak(v)) return breakHtml(v, slotOpts);
+			const linked = P.isLinked(v);
+			const refOpts = linked
+				? (P.BRACKET[v.phase].n > 1 ? opts([...Array(P.BRACKET[v.phase].n)].map((_, i) => [i, `${v.phase === 'quarter' ? 'QF' : 'DF'}${i + 1} du bracket`]), v.ref) : '')
+				: opts([['', 'Sans groupe'], ...((bk.groups || []).map((g, i) => [i, g.name || 'Groupe ' + String.fromCharCode(65 + i)]))], v.group === null ? '' : v.group);
+			const ref = refOpts ? `<select class="w-ref" data-f="${linked ? 'ref' : 'group'}" aria-label="${linked ? 'Match du bracket' : 'Groupe'}">${refOpts}</select>` : '';
+			const sc = (k) => `<input type="number" min="0" class="w-num" data-f="score${k}" value="${v['score' + k] ?? ''}" placeholder="0" aria-label="Score ${k}">`;
+			return `<div class="m ${v.status}${v.current ? ' current' : ''}" data-id="${esc(v.id)}">
+				<div class="l1">
+					<select class="w-phase" data-f="phase" aria-label="Phase">${opts(PHASE_OPTS, v.phase)}</select>${ref}
+					<select class="w-fmt" data-f="format" aria-label="Format">${opts([['bo1', 'BO1'], ['bo3', 'BO3'], ['bo5', 'BO5']], v.format)}</select>
+					<input type="number" class="w-dur" data-f="minutes" min="10" max="480" step="5" value="${v.minutes ?? ''}" placeholder="${p.duration}" aria-label="Durée du match (min)" title="Durée de ce match en minutes (vide = durée par défaut : ${p.duration} min)"><span class="u">min</span>
+					<label class="chk"><input type="checkbox" data-f="streamed"${v.streamed ? ' checked' : ''}> Sur le stream</label>
+					<span class="sp"></span>
+					<select class="w-slot" data-f="slot" aria-label="Créneau">${slotOpts(v.slot)}</select>
+					${v.current ? '<span class="onair">● EN COURS</span>' : `<button type="button" data-act="start" title="Charger ce match dans le panneau Match et le suivre">▶ Lancer</button>`}
+					<button type="button" class="danger" data-act="del" title="Retirer du planning">✕</button>
+				</div>
+				<div class="l2">
+					<select class="team" data-f="teamA" aria-label="Équipe A">${teamOpts(v.teamA, v, 'A')}</select>
+					${sc('A')}<span class="vs">–</span>${sc('B')}
+					<select class="team" data-f="teamB" aria-label="Équipe B">${teamOpts(v.teamB, v, 'B')}</select>
+					<select class="w-st" data-f="status" aria-label="Statut">${opts([['upcoming', 'À venir'], ['live', 'En cours'], ['done', 'Terminé']], v.status)}</select>
+				</div>
+				<div class="via"><span class="lbl">${esc(v.title)}</span> · ${v.time} – ${v.end}${v.minutes ? ` (${v.minutes} min)` : ''}${linked ? ' · équipes, score et statut partagés avec le Bracket' : v.group === null ? ' · sans groupe : ne compte pas au classement' : ' · compte au classement du groupe'}</div>
+			</div>`;
+		}
+
+		function warnings(p, bk) {
+			const out = [];
+			const refs = new Map();
+			for (const r of p.matches.filter(P.isLinked)) {
+				const k = P.bracketPath(r);
+				if (refs.has(k)) out.push(`${P.label(r, bk)} apparaît deux fois au planning.`);
+				refs.set(k, true);
+			}
+			for (const s of P.slots(p, bk)) {
+				const streamed = s.matches.filter((v) => v.streamed);
+				if (streamed.length > 1) out.push(`${s.time} : ${streamed.length} matchs « sur le stream » en même temps.`);
+				const ids = s.matches.flatMap((v) => [v.teamA, v.teamB]).filter(Boolean);
+				const dup = ids.find((id, i) => ids.indexOf(id) !== i);
+				if (dup) out.push(`${s.time} : ${(KB.team(dup) || {}).name || dup} joue deux matchs en même temps.`);
+			}
+			return out;
+		}
+
+		function render() {
+			const p = plan();
+			const bk = bracketRep.value || KBB.defaultBracket();
+			const tx = KBScenes.texts().schedule;
+			for (const [id, v] of [['start', p.start], ['duration', p.duration], ['txKicker', tx.kicker], ['txTitle', tx.title]]) if (document.activeElement !== $(id)) $(id).value = v;
+			const slots = P.slots(p, bk);
+			const last = slots[slots.length - 1];
+			const games = p.matches.filter((r) => !P.isBreak(r)), breaks = p.matches.length - games.length;
+			$('summary').textContent = p.matches.length
+				? `${games.length} match(s)${breaks ? ` et ${breaks} pause(s)` : ''} sur ${slots.length} créneau(x) · de ${p.start} à ${last.end} · ${games.filter((r) => r.streamed).length} sur le stream`
+				: 'Aucun match : ajoute-les ci-dessous.';
+			const cur = P.view(p, bk).find((v) => v.current);
+			$('current').innerHTML = cur
+				? `<b>${esc(cur.title)} · ${cur.time}</b>${esc((KB.team(cur.teamA) || {}).name || P.placeholder(cur, 'A'))} vs ${esc((KB.team(cur.teamB) || {}).name || P.placeholder(cur, 'B'))}`
+				: '<span class="empty">Aucun : « ▶ Lancer » sur un match pour le suivre.</span>';
+			$('stop').disabled = !cur;
+			$('warn').innerHTML = warnings(p, bk).map((w) => `<div>⚠ ${esc(w)}</div>`).join('');
+			const next = maxSlot(p) + 1;
+			const slotOpts = (sel) => opts([...slots.map((s) => [s.slot, s.time]), [next, P.slotTime(p, next) + ' (nouveau)']], sel);
+			const kind = (s) => { const n = s.matches.filter((v) => !P.isBreak(v)).length; return !n ? 'Pause' : n > 1 ? n + ' matchs en même temps' : '1 match'; };
+			$('list').innerHTML = slots.map((s, i) => `
+				<div class="slot${s.matches.some((v) => v.status === 'live' && !P.isBreak(v)) ? ' live' : ''}" data-slot="${s.slot}">
+					<div class="shead"><span class="t">${s.time} – ${s.end}</span><span class="n">${kind(s)}</span><span class="sp"></span>
+						<button type="button" data-act="slotUp" ${i === 0 ? 'disabled' : ''} title="Échanger avec le créneau d'avant">↑</button>
+						<button type="button" data-act="slotDown" ${i === slots.length - 1 ? 'disabled' : ''} title="Échanger avec le créneau d'après">↓</button>
+						<button type="button" data-act="breakAfter" title="Insérer une pause juste après ce créneau (les suivants sont décalés)">☕ Pause après</button>
+						${s.matches.every((v) => P.isBreak(v)) ? '' : '<button type="button" data-act="parallel" title="Ajouter un match joué en même temps">+ En parallèle</button>'}</div>
+					${s.matches.map((v) => rowHtml(p, v, bk, slotOpts)).join('')}
+				</div>`).join('') || '<p class="empty">Aucun match au planning.</p>';
+		}
+		const safeRender = KBD.deferWhileEditing('list', render);
+		KB.watch(['teams', planRep, bracketRep, texts], safeRender);
+
+		// ---------- Réglages de la journée ----------
+		$('start').onchange = () => { if (/^\d{2}:\d{2}$/.test($('start').value)) savePlan({ ...plan(), start: $('start').value }); };
+		$('duration').onchange = () => savePlan({ ...plan(), duration: +$('duration').value || P.DEFAULT.duration });
+		for (const id of ['txKicker', 'txTitle']) {
+			$(id).onchange = () => {
+				const v = KB.clone(texts.value || {});
+				v.schedule = { ...(v.schedule || {}), [$(id).dataset.tx]: $(id).value };
+				texts.value = v;
+			};
+		}
+
+		// ---------- Ajouts ----------
+		document.querySelector('.adds').addEventListener('click', (e) => {
+			const phase = e.target.dataset.add;
+			if (!phase) return;
+			const p = plan();
+			const s = maxSlot(p) + 1;
+			const add = [];
+			if (phase === 'quarter') [0, 1, 2, 3].forEach((i) => add.push(P.newRow('quarter', { ref: i, slot: s + Math.floor(i / 2), streamed: i % 2 === 0 })));
+			else if (phase === 'semi') [0, 1].forEach((i) => add.push(P.newRow('semi', { ref: i, slot: s + i })));
+			else if (phase === 'break') add.push(P.newRow('break', { slot: s, ...P.BREAK_DEFAULT }));
+			else add.push(P.newRow(phase, { slot: s, group: phase === 'pool' && (bracketRep.value.groups || []).length ? 0 : null }));
+			savePlan({ ...p, matches: [...p.matches, ...add] });
+		});
+		$('pack').onclick = () => {
+			const p = plan();
+			const used = [...new Set(p.matches.map((r) => r.slot))].sort((a, b) => a - b);
+			savePlan({ ...p, matches: p.matches.map((r) => ({ ...r, slot: used.indexOf(r.slot) })) });
+		};
+		$('stop').onclick = () => nodecg.sendMessage('planning:stop').catch((err) => msg(String(err), 'err'));
+
+		// ---------- Modifications d'un match ----------
+		$('list').addEventListener('change', (e) => {
+			const el = e.target, f = el.dataset.f;
+			const box = el.closest('.m');
+			if (!f || !box) return;
+			const p = plan();
+			const row = p.matches.find((r) => r.id === box.dataset.id);
+			if (!row) return;
+			const linked = P.isLinked(row);
+			const val = el.type === 'checkbox' ? el.checked : el.value;
+			if (f === 'phase') {
+				// Nouvelle phase : format par défaut de la phase ; un match de poules garde ses équipes, un match lié prend celles du bracket
+				return updateRow(row.id, { phase: val, ref: 0, format: P.FORMAT_DEFAULT[val], group: val === 'pool' ? row.group : null });
+			}
+			if (f === 'ref') return updateRow(row.id, { ref: +val });
+			if (f === 'group') return updateRow(row.id, { group: val === '' ? null : +val });
+			if (f === 'slot') return updateRow(row.id, { slot: +val });
+			if (P.isBreak(row)) {
+				if (f === 'label') return updateRow(row.id, { label: val });
+				if (f === 'minutes') return updateRow(row.id, { minutes: +val || P.BREAK_DEFAULT.minutes });
+				return;
+			}
+			if (f === 'format' || f === 'streamed') return updateRow(row.id, { [f]: val });
+			// Durée propre au match ; vide = durée par défaut. Le créneau dure son match le plus long : les suivants sont décalés
+			if (f === 'minutes') return updateRow(row.id, { minutes: val === '' ? null : +val });
+			const score = (x) => (x === '' ? null : Math.max(0, parseInt(x, 10) || 0));
+			if (linked) {
+				if (f === 'teamA' || f === 'teamB') return writeBracket(row, { [f === 'teamA' ? 'a' : 'b']: val || null });
+				if (f === 'scoreA' || f === 'scoreB') return writeBracket(row, { [f]: score(val) ?? 0 });
+				if (f === 'status') return writeBracket(row, { status: val });
+			}
+			if (f === 'scoreA' || f === 'scoreB') return updateRow(row.id, { [f]: score(val), rounds: null });
+			if (f === 'teamA' || f === 'teamB') return updateRow(row.id, { [f]: val || null, rounds: null });
+			if (f === 'status') return updateRow(row.id, { status: val });
+		});
+		$('list').addEventListener('click', (e) => {
+			const b = e.target.closest('button[data-act]');
+			if (!b) return;
+			const p = plan();
+			const box = b.closest('.m'), slotEl = b.closest('.slot');
+			const id = box && box.dataset.id;
+			switch (b.dataset.act) {
+				case 'del':
+					KBD.arm(b, () => { const q = plan(); savePlan({ ...q, current: q.current === id ? null : q.current, matches: q.matches.filter((r) => r.id !== id) }); }, { label: 'Retirer ?' });
+					break;
+				case 'start':
+					nodecg.sendMessage('planning:start', { id })
+						.then((r) => msg(`✔ ${r.title} lancé : chargé dans le panneau Match${r.reset ? ' (maps et veto remis à zéro, sauvegarde faite avant)' : ''}.`))
+						.catch((err) => msg(String(err), 'err'));
+					break;
+				case 'parallel': {
+					const s = +slotEl.dataset.slot;
+					const others = p.matches.filter((r) => r.slot === s);
+					const ph = others[0] ? others[0].phase : 'pool';
+					savePlan({ ...p, matches: [...p.matches, P.newRow(ph === 'pool' ? 'pool' : ph, { slot: s, streamed: !others.some((r) => r.streamed), group: ph === 'pool' && others[0] ? others[0].group : null, ref: ph === 'pool' ? 0 : Math.min(P.BRACKET[ph].n - 1, others.length) })] });
+					break;
+				}
+				case 'breakAfter': {
+					// Les créneaux d'après reculent d'un cran pour faire de la place
+					const s = +slotEl.dataset.slot;
+					const rows = p.matches.map((r) => (r.slot > s ? { ...r, slot: r.slot + 1 } : r));
+					savePlan({ ...p, matches: [...rows, P.newRow('break', { slot: s + 1, ...P.BREAK_DEFAULT })] });
+					break;
+				}
+				case 'slotUp': case 'slotDown': {
+					const slots = [...new Set(p.matches.map((r) => r.slot))].sort((a, c) => a - c);
+					const s = +slotEl.dataset.slot, i = slots.indexOf(s), o = slots[i + (b.dataset.act === 'slotUp' ? -1 : 1)];
+					if (o === undefined) return;
+					savePlan({ ...p, matches: p.matches.map((r) => ({ ...r, slot: r.slot === s ? o : r.slot === o ? s : r.slot })) });
+					break;
+				}
+			}
+		});
+	</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="fr" class="kb-graphic">
+<head>
+<meta charset="utf-8">
+<title>KB SERIES · Planning</title>
+<!--
+	Overlay plein écran « Planning » : programme de la journée en créneaux d'une heure (matchs joués en même temps côte à côte),
+	phase de chaque match, score, statut, et ce qui est diffusé sur le stream ou non.
+	Replicants lus : planning, bracket, teams, tournament, scenesTexts, planningGraphic.visible (défaut : KBPlan.GRAPHIC_DEFAULT,
+	shared/planning.js). Rendu commun avec la scène de fond schedule.html : shared/planning-view.js + planning.css.
+	Piloté par KBO (Régie, panneau Planning, API Companion : overlay planning) ; contenu réglé dans le panneau Planning.
+-->
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/planning.css">
+</head>
+<body>
+<script src="../shared/kb.js"></script>
+<script src="../shared/scenes.js"></script>
+<script src="../shared/bracket.js"></script>
+<script src="../shared/planning.js"></script>
+<script src="../shared/planning-view.js"></script>
+<script>KBPV.mount({ mode: 'overlay' });</script>
+</body>
+</html>

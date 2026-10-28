@@ -5,7 +5,8 @@
 	<title>Bracket &amp; Groupes</title>
 	<!--
 		Panneau Bracket & Groupes : classement des groupes (V/D, rounds) et phase finale (quarts → finale, petite finale).
-		Écrit `bracket` (la propagation des vainqueurs est faite par extension/bracket.js) et `bracketGraphics` (match LIVE mis en avant ;
+		Écrit `bracket` (la propagation des vainqueurs est faite par extension/bracket.js ; classement des groupes à matchs de poules
+		et heures des matchs liés tenus par le planning, extension/planning.js : champs en lecture seule ici) et `bracketGraphics` (match LIVE mis en avant ;
 		visibilité Groupes / Bracket via KBO). Messages : `bracket:fillQuarters`, `bracket:reset` (sauvegarde faite par le serveur avant).
 	-->
 	<link rel="stylesheet" href="../shared/dashboard.css">
@@ -68,12 +69,15 @@
 
 	<script src="../shared/kb.js"></script>
 	<script src="../shared/bracket.js"></script>
+	<script src="../shared/planning.js"></script>
 	<script src="../shared/dash.js"></script>
 	<script src="../shared/overlay-list.js"></script>
 	<script src="../shared/overlays.js"></script>
 	<script>
 		const bracketRep = nodecg.Replicant('bracket', { defaultValue: KBB.defaultBracket() });
 		const gfxRep = nodecg.Replicant('bracketGraphics', { defaultValue: KB.clone(KBB.GRAPHICS_DEFAULT) });
+		// Planning : classement calculé pour les groupes qui ont des matchs de poules, heure des matchs liés (extension/planning.js)
+		const planRep = nodecg.Replicant('planning', { defaultValue: KB.clone(KBPlan.DEFAULT) });
 		const NUM = new Set(['w', 'l', 'rw', 'rl', 'scoreA', 'scoreB', 'qualify']);
 		const esc = KB.esc;
 
@@ -92,6 +96,7 @@
 			KB.$('#groups').innerHTML = groups.map((g, gi) => `
 				<div class="card gcard">
 					<div class="ghead"><input data-path="groups.${gi}.name" placeholder="Nom du groupe" aria-label="Nom du groupe ${gi + 1}"><button class="danger icon shrink" data-act="delGroup" data-g="${gi}" title="Supprimer le groupe">✕</button></div>
+					<div class="hint gnote hidden" data-gnote="${gi}">Classement calculé depuis les matchs de poules du panneau Planning (V / D et rounds non modifiables ici).</div>
 					<table><thead><tr><th>#</th><th>Équipe</th><th>V</th><th>D</th><th>Rds +</th><th>Rds −</th><th>Diff</th><th></th></tr></thead><tbody>
 					${(g.teams || []).map((t, ti) => `<tr>
 						<td class="rk" data-rank="${gi}.${ti}"></td>
@@ -157,6 +162,15 @@
 					KB.$(`button[data-s="${s}"]`, el).classList.toggle('active', m.winner === s);
 				}
 			}
+			// Champs tenus par le planning : en lecture seule ici
+			const computed = KBPlan.computedGroups(planRep.value), linked = KBPlan.linkedPaths(planRep.value);
+			for (const el of KB.$$('[data-path]')) {
+				const g = /^groups\.(\d+)\.teams\.\d+\.(w|l|rw|rl)$/.exec(el.dataset.path);
+				if (g) { el.disabled = computed.has(+g[1]); el.title = el.disabled ? 'Calculé depuis le planning' : ''; }
+				const t = /^(playoffs\..+)\.time$/.exec(el.dataset.path);
+				if (t) { el.readOnly = linked.has(t[1]); el.title = el.readOnly ? 'Heure du créneau, réglée dans le panneau Planning' : ''; }
+			}
+			for (const el of KB.$$('[data-gnote]')) el.classList.toggle('hidden', !computed.has(+el.dataset.gnote));
 			KB.$('#highlightLive').checked = (gfxRep.value || {}).highlightLive !== false;
 		}
 
@@ -225,7 +239,7 @@
 			} catch (err) { msg(err.message || String(err), 'err'); }
 		}, { label: 'Tout effacer (groupes et phase finale) ?' });
 
-		KB.watch(['teams', bracketRep, gfxRep], sync);
+		KB.watch(['teams', bracketRep, gfxRep, planRep], sync);
 	</script>
 </body>
 </html>

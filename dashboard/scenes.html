@@ -4,8 +4,8 @@
 	<meta charset="utf-8">
 	<title>Écrans</title>
 	<!--
-		Panneau Écrans : compte à rebours, textes des écrans de fond (attente, pause, fin), rotation de la pause, planning et infos tournoi.
-		Écrit `countdown`, `scenesTexts`, `scenesRotation`, `schedule` et `tournament` ; lit `streamScene` (indicateur seulement :
+		Panneau Écrans : compte à rebours, textes des écrans de fond (attente, pause, fin), rotation de la pause et infos tournoi (le planning a son panneau : dashboard/planning.html).
+		Écrit `countdown`, `scenesTexts`, `scenesRotation` et `tournament` ; lit `streamScene` (indicateur seulement :
 		le choix de la scène de fond se fait dans la Régie). N'envoie aucun message.
 	-->
 	<link rel="stylesheet" href="../shared/dashboard.css">
@@ -23,8 +23,6 @@
 		.w-time { flex: 0 0 92px !important; }
 		.w-num { flex: 0 0 58px !important; text-align: center; }
 		.w-icon { flex: 0 0 auto !important; padding: 6px 9px !important; }
-		.sch .vs { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
-		.sch .idx { flex: 0 0 auto; color: var(--muted); font-size: 12px; width: 16px; }
 		.links { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; margin-top: 4px; }
 		.saved { color: var(--ok); font-size: 11px; letter-spacing: 0; text-transform: none; opacity: 0; transition: opacity .3s; }
 		.saved.on { opacity: 1; }
@@ -109,19 +107,10 @@
 	</details>
 
 	<!-- ========== Planning ========== -->
-	<details class="fold" open>
-		<summary>Planning <span class="saved" id="schSaved">enregistré</span></summary>
-		<div class="grid2">
-			<div><label for="tx-schedule-kicker">Sur-titre</label><input id="tx-schedule-kicker" data-path="schedule.kicker"></div>
-			<div><label for="tx-schedule-title">Titre</label><input id="tx-schedule-title" data-path="schedule.title"></div>
-		</div>
-		<div id="schList"></div>
-		<div class="row">
-			<button class="gold" id="schAdd">+ Ajouter un match</button>
-			<button id="schSort" class="shrink">Trier par heure</button>
-		</div>
-		<div class="hint">Les matchs « Terminé » apparaissent dans les résultats de l'écran de fin. Les scores sont ceux de la série (maps gagnées).</div>
-	</details>
+	<div class="card">
+		<div class="hint">Le <b>planning</b> (matchs, horaires, phases, diffusion, titre de l'écran) se règle dans le panneau <b>Planning de la journée</b>.
+			L'écran de fond « Planning » et l'overlay plein écran du même nom l'affichent.</div>
+	</div>
 
 	<!-- ========== Tournoi ========== -->
 	<details class="fold">
@@ -224,84 +213,6 @@
 			$$('[data-t]').forEach((el) => { if (el !== document.activeElement) el.value = t[el.dataset.t] ?? ''; });
 		}
 
-		/* ---------- Planning ---------- */
-		const sch = KB.rep.schedule;
-		const list = $('#schList');
-		function saveSchedule(rows) {
-			sch.value = rows;
-			const s = $('#schSaved'); s.classList.add('on'); clearTimeout(saveSchedule.t); saveSchedule.t = setTimeout(() => s.classList.remove('on'), 900);
-		}
-		const teamOptions = (sel) => KBD.teamOptions(sel, { empty: '— À déterminer —' });
-		function renderSchedule() {
-			const rows = sch.value || [];
-			if (!rows.length) { list.innerHTML = '<p class="empty">Aucun match au planning.</p>'; return; }
-			list.innerHTML = rows.map((r, i) => {
-				const st = r.status || 'upcoming';
-				return `<div class="card sch state-card state-${esc(st)}" data-i="${i}">
-					<div class="row mt0">
-						<span class="idx">${i + 1}</span>
-						<input class="w-time" data-f="time" value="${esc(r.time || '')}" placeholder="14:00" aria-label="Heure du match ${i + 1}">
-						<input data-f="label" value="${esc(r.label || '')}" placeholder="Phase / libellé" aria-label="Libellé du match ${i + 1}">
-						<button class="w-icon" data-act="up" title="Monter" ${i === 0 ? 'disabled' : ''}>↑</button>
-						<button class="w-icon" data-act="down" title="Descendre" ${i === rows.length - 1 ? 'disabled' : ''}>↓</button>
-						<button class="w-icon danger" data-act="del" title="Supprimer">✕</button>
-					</div>
-					<div class="row">
-						<select data-f="teamA" aria-label="Équipe 1 du match ${i + 1}">${teamOptions(r.teamA)}</select>
-						<span class="vs">vs</span>
-						<select data-f="teamB" aria-label="Équipe 2 du match ${i + 1}">${teamOptions(r.teamB)}</select>
-					</div>
-					<div class="row">
-						<select data-f="status" aria-label="Statut du match ${i + 1}">
-							<option value="upcoming" ${st === 'upcoming' ? 'selected' : ''}>À venir</option>
-							<option value="live" ${st === 'live' ? 'selected' : ''}>En cours</option>
-							<option value="done" ${st === 'done' ? 'selected' : ''}>Terminé</option>
-						</select>
-						<input type="number" min="0" class="w-num" data-f="scoreA" value="${r.scoreA ?? ''}" placeholder="0" title="Score équipe 1" aria-label="Score équipe 1">
-						<span class="vs">–</span>
-						<input type="number" min="0" class="w-num" data-f="scoreB" value="${r.scoreB ?? ''}" placeholder="0" title="Score équipe 2" aria-label="Score équipe 2">
-					</div>
-				</div>`;
-			}).join('');
-		}
-		// Ne pas réécrire la liste pendant une saisie : rendu rejoué à la sortie du champ
-		const safeRenderSchedule = KBD.deferWhileEditing(list, renderSchedule);
-		list.addEventListener('change', (e) => {
-			const card = e.target.closest('.sch'); const f = e.target.dataset.f; if (!card || !f) return;
-			const rows = KB.clone(sch.value || []); const r = rows[+card.dataset.i]; if (!r) return;
-			let v = e.target.value;
-			if (f === 'teamA' || f === 'teamB') v = v || null;
-			if (f === 'scoreA' || f === 'scoreB') v = v === '' ? null : Math.max(0, parseInt(v, 10) || 0);
-			r[f] = v;
-			if (f === 'status') card.className = 'card sch state-card state-' + v;
-			saveSchedule(rows);
-		});
-		list.addEventListener('click', (e) => {
-			const b = e.target.closest('[data-act]'); if (!b) return;
-			const i = +b.closest('.sch').dataset.i;
-			if (b.dataset.act === 'del') {
-				KBD.arm(b, () => { const rows = KB.clone(sch.value || []); rows.splice(i, 1); saveSchedule(rows); }, { label: 'Supprimer ?' });
-				return;
-			}
-			const rows = KB.clone(sch.value || []);
-			if (b.dataset.act === 'up' && i > 0) [rows[i - 1], rows[i]] = [rows[i], rows[i - 1]];
-			if (b.dataset.act === 'down' && i < rows.length - 1) [rows[i + 1], rows[i]] = [rows[i], rows[i + 1]];
-			saveSchedule(rows);
-		});
-		$('#schAdd').onclick = () => {
-			const rows = KB.clone(sch.value || []);
-			const last = rows[rows.length - 1];
-			let time = '';
-			if (last && /^\d{1,2}:\d{2}$/.test(last.time || '')) { const [h, m] = last.time.split(':').map(Number); const t = h * 60 + m + 90; time = `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; }
-			rows.push({ time, label: '', teamA: null, teamB: null, status: 'upcoming', scoreA: null, scoreB: null });
-			document.activeElement && document.activeElement.blur();
-			saveSchedule(rows);
-		};
-		$('#schSort').onclick = () => {
-			const key = (t) => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); return m ? +m[1] * 60 + +m[2] : 1e9; };
-			saveSchedule(KB.clone(sch.value || []).sort((a, b) => key(a.time) - key(b.time)));
-		};
-
 		/* ---------- Rotation (scenesRotation) ---------- */
 		const rotList = $('#rotList');
 		$('#rotType').innerHTML = Object.entries(S.ROTATION_TYPES).map(([k, v]) => `<option value="${k}">${esc(v.name)}</option>`).join('');
@@ -367,7 +278,6 @@
 		KB.watch(['countdown'], tickCd);
 		KB.watch([S.rep], renderTexts);
 		KB.watch(['tournament'], renderTournament);
-		KB.watch(['schedule', 'teams'], safeRenderSchedule);
 	</script>
 </body>
 </html>

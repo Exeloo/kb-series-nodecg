@@ -1,6 +1,6 @@
 # KB SERIES × Valorant — régie et overlays
 
-Habillage du tournoi Valorant **KB SERIES** pour OBS : 19 overlays 1920×1080, réunis dans une seule page pour OBS, et une régie web pour tout piloter en direct.
+Habillage du tournoi Valorant **KB SERIES** pour OBS : 20 overlays 1920×1080, réunis dans une seule page pour OBS, et une régie web pour tout piloter en direct.
 Le projet tourne sur ton PC avec [NodeCG](https://www.nodecg.dev/) ; aucune connaissance technique n'est nécessaire pour l'utiliser.
 
 ## Démarrage rapide
@@ -33,7 +33,8 @@ Scènes d'attente, overlays et transition se pilotent ensuite depuis la **Régie
 | **Match (maps, scores, agents)** | 1. Match & Joueurs | Équipes du match, format, maps, scores, agents joués |
 | **Veto des maps** | 1. Match & Joueurs | Veto en direct : bans, picks, côtés ; liens à envoyer aux équipes pour qu'elles le jouent elles-mêmes |
 | **Stats Joueur · fiche et duel** | 1. Match & Joueurs | Fiche stats d'un joueur, duel entre deux joueurs |
-| **Écrans (attente, pause, fin, planning)** | 2. Écrans & Tournoi | Compte à rebours, textes des écrans, planning, infos du tournoi |
+| **Planning de la journée** | 2. Écrans & Tournoi | Matchs du jour en créneaux d'une heure, phases (poules → grande finale), diffusés ou non, lancement du match sur le stream ; lié au bracket et au match en cours |
+| **Écrans (attente, pause, fin)** | 2. Écrans & Tournoi | Compte à rebours, textes des écrans, infos du tournoi |
 | **Bracket & Groupes** | 2. Écrans & Tournoi | Classement des groupes et phase finale |
 | **Données · sauvegarde, import, réglages** | 3. Données | Exporter / importer, sauvegardes, données de test, réinitialisation, jeton Bitfocus Companion |
 | **Companion · boutons et API** | Companion (onglet plein écran) | Boutons Bitfocus Companion prêts à copier (URL, en-tête, corps), constructeur et test de chaque route, référence de l'API |
@@ -49,7 +50,7 @@ Avec `stream.html`, tu n'as besoin d'aucune autre URL. Chaque overlay reste disp
 | `starting.html` | Le stream commence bientôt + compte à rebours | Écrans ; Régie (scène **Bientôt**) |
 | `brb.html` | Pause | Écrans ; Régie (scène **Pause**) |
 | `ending.html` | Fin de stream, résultats du jour | Écrans ; Régie (scène **Fin**) |
-| `schedule.html` | Planning plein écran | Écrans ; Régie (scène **Planning**) |
+| `schedule.html` | Planning de la journée, en scène de fond | Planning ; Régie (scène **Planning**) |
 | `dual-cam.html` | Écran 50/50, deux trous caméra | Écran 50/50 ; Régie (scène **50/50 caméras**) |
 | `transition.html` | Transition (stinger), au-dessus de tout | Régie, Maps & Transitions |
 | `lower-third.html` | 3 lower thirds, gauche, centre et droite (transparent) : host, casters, annonces | Lower thirds, Régie |
@@ -63,6 +64,7 @@ Avec `stream.html`, tu n'as besoin d'aucune autre URL. Chaque overlay reste disp
 | `map-result.html` | Résultat de map + MVP | Maps & Transitions, Régie |
 | `player-stats.html` | Stats d'un joueur (vue générale ou performances par rôle) | Stats Joueur, Régie |
 | `player-duel.html` | Duel joueur contre joueur | Stats Joueur, Régie |
+| `planning.html` | Planning de la journée, overlay plein écran (même rendu que la scène) | Planning, Régie |
 | `groups.html` | Classement des groupes | Bracket & Groupes, Régie |
 | `bracket.html` | Arbre de la phase finale | Bracket & Groupes, Régie |
 
