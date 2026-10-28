@@ -14,15 +14,6 @@ services:
       timeout: 5s
       start_period: 40s
       retries: 3
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    ports: ["80:80", "443:443"]
-    command: caddy reverse-proxy --from ${NODECG_BASE_URL:?NODECG_BASE_URL manquant dans .env} --to nodecg:9090
-    volumes:
-      - caddy-data:/data
-      - caddy-config:/config
-    depends_on: [nodecg]
 volumes:
   nodecg-data:
   caddy-data:
