@@ -58,6 +58,9 @@ Ce que fait l'import :
 
 Messages de refus possibles : « Fichier non reconnu (export KB SERIES attendu) », « Fichier illisible (JSON invalide) », « Donnée inconnue dans le fichier », « Type de fichier refusé ». Voir [DEPANNAGE.md](DEPANNAGE.md#import-ou-export-refusé).
 
+### Deux régies reliées
+Une régie sur place reliée à une régie en ligne (panneau **Données** → **8. Deux régies**, [DEPLOIEMENT.md](DEPLOIEMENT.md#deux-régies--en-ligne--sur-place-overlays-sans-délai)) partage ses données avec elle en direct : sauvegarde, restauration, import ou réinitialisation faits d'un côté s'appliquent aussi de l'autre. Avant que la régie en ligne ne remplace des données de la régie sur place, une sauvegarde `avant-synchro` est faite sur place.
+
 ## Restaurer une sauvegarde
 1. Panneau **Données** → **2. Sauvegardes automatiques** (**↻ Actualiser la liste** si besoin).
 2. Repère la bonne ligne : date, heure et raison (ex. « Avant une réinitialisation »).

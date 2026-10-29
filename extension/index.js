@@ -26,7 +26,8 @@ module.exports = function (nodecg) {
 		['data-transfer', () => require('./data-transfer')(nodecg, listen, backup)],
 		['dev-reload', () => require('./dev-reload')(nodecg)],
 		['diag', () => require('./diag')(nodecg, listen)],                 // diagnostic : délai des commandes dans chaque page d'overlay
-		['companion', () => require('./companion')(nodecg, listen, live)],   // API HTTP pour Bitfocus Companion (en dernier : replicants déjà déclarés)
+		['companion', () => require('./companion')(nodecg, listen, live)],   // API HTTP pour Bitfocus Companion (replicants déjà déclarés)
+		['sync', () => require('./sync')(nodecg, listen, backup)],          // synchro en direct régie en ligne ↔ régie sur place (en dernier : tous les replicants déclarés)
 	];
 	for (const [name, load] of parts) {
 		try {

@@ -62,7 +62,7 @@ Toutes les données (base, sauvegardes, logos, photos) vivent dans **un seul vol
    (équipes, joueurs, réglages, logos et photos dans un seul fichier), puis sur la régie en ligne
    **⬆ Importer un fichier…**. Une sauvegarde est faite avant l'import, et les overlays sont masqués après.
    Au-delà de 150 Mo de logos et photos, exporte sans les fichiers et renvoie-les dans **ASSETS**.
-2. **OBS** (sur le PC de stream) : les overlays sont protégés par le mot de passe, OBS utilise la **clé** de la régie :
+2. **OBS** (sur le PC de stream) : pour des transitions sans délai, préfère une régie sur place reliée à celle-ci (voir [Deux régies](#deux-régies--en-ligne--sur-place-overlays-sans-délai)). Sinon, les overlays sont protégés par le mot de passe et OBS utilise la **clé** de la régie :
    régie en ligne → **SETTINGS** (en haut à droite) → carte **Your Key** → **Copy Key**, puis l'URL de la source navigateur :
    `https://regie.tondomaine.fr/bundles/valorant-tournament/graphics/stream.html?key=TA_CLE`
    Cette clé donne un **accès complet** à la régie : traite-la comme un mot de passe, ne la montre jamais à l'écran.
@@ -70,6 +70,28 @@ Toutes les données (base, sauvegardes, logos, photos) vivent dans **un seul vol
 3. **Extension d'import tracker.gg** (Chrome, Edge ou Firefox) : actualise-la (voir [son guide](../tools/tracker-extension/README.md#mettre-à-jour)) ; elle fonctionne sur le domaine
    tant que tu es connecté à la régie dans le même navigateur. Refais aussi le favori « ⇪ Envoyer à NodeCG » depuis la régie en ligne.
 4. **Export PNG de la transition** : impossible en ligne (l'image n'embarque ni navigateur ni les outils d'export). Fais-le depuis la régie locale.
+
+## Deux régies : en ligne + sur place (overlays sans délai)
+Le jour du tournoi, deux régies peuvent tourner en même temps et rester synchronisées en direct :
+- la régie **en ligne** : liens de veto envoyés aux équipes, choix des maps, pilotage à distance ;
+- la régie **sur place**, sur le PC de stream (`start.bat`) : OBS / vMix lisent les overlays sur `http://localhost:9090`, les transitions partent sans passer par Internet.
+
+Tout ce qui est modifié d'un côté (équipes, match, veto, scores, lower thirds, affichages…) apparaît de l'autre en une fraction de seconde. Les **logos et photos** sont copiés de la régie en ligne vers celle sur place : envoie-les **en ligne** (onglet ASSETS).
+
+### Mise en place
+1. Régie en ligne : panneau **Données** → section **8. Deux régies** → **Copier** le jeton (ou fixe-le avec la variable `SYNC_TOKEN`, au moins 16 caractères aléatoires).
+2. Régie sur place : panneau **Données** → section **8** → adresse de la régie en ligne (`regie.tondomaine.fr`) + jeton → **Relier à la régie en ligne** (2 clics).
+   Au premier contact, les données de la régie sur place sont **remplacées** par celles en ligne (une sauvegarde `avant-synchro` est faite avant). Le réglage est gardé : au prochain lancement, la régie sur place se reconnecte toute seule.
+   Variante sans panneau : variables d'environnement `SYNC_URL=https://regie.tondomaine.fr` et `SYNC_TOKEN=<jeton>` sur la régie sur place.
+3. La section 8 affiche l'état des deux côtés : **✔ Reliée** sur place, **1 régie sur place reliée** en ligne.
+4. OBS / vMix : sources navigateur sur la régie **sur place** (`http://localhost:9090/...`, sans clé). Bitfocus Companion : sur la régie sur place aussi, pour des transitions sans délai.
+
+### Pendant le direct
+- **Coupure Internet** : la régie sur place continue seule ; elle se reconnecte toute seule. Ce qui a été modifié sur place pendant la coupure est envoyé en ligne ; ce qui a été modifié en ligne pendant la coupure est récupéré (sur un même champ modifié des deux côtés, la valeur d'en ligne gagne).
+- **Rien ne bouge à l'antenne à la reconnexion** : un overlay affiché sur place reste affiché avec son contenu (une modification de son texte faite en ligne pendant la coupure est écartée), un overlay masqué reste masqué ; la scène de fond reste celle de la régie sur place et aucune transition n'est rejouée.
+- **Redémarrage de la régie sur place** : elle reprend les données en ligne. Ce qui a été modifié sur place hors connexion avant ce redémarrage est perdu, mais une sauvegarde `avant-synchro` est faite avant (`db/backups/`, restaurable depuis le panneau Données) ; de même si la régie en ligne revient avec des données différentes (vidée, restaurée…).
+- Les **horloges** des deux machines doivent être à l'heure (comptes à rebours) : laisse la synchronisation automatique de l'heure activée sous Windows.
+- **Jeton** : il donne accès à toutes les données. En cas de fuite : **Créer un nouveau jeton** en ligne (la régie sur place est déconnectée), puis recopie-le sur place.
 
 ## En local, rien ne change
 `start.bat` : pas de mot de passe, http://localhost:9090, joignable seulement depuis ce PC. La configuration est dans `cfg/nodecg.js`

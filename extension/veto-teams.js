@@ -56,7 +56,9 @@ module.exports = function (nodecg, listen) {
 	const seen = { A: 0, B: 0 };
 	const onlineNow = () => Object.fromEntries(TEAMS.map((k) => [k, Date.now() - seen[k] < 5000]));
 	let shown = '';
-	const publishInfo = () => { const o = onlineNow(), sig = JSON.stringify(o); if (sig !== shown || !info.value || !info.value.urls) { shown = sig; info.value = { urls, lan, online: o }; } };
+	// Régie sur place reliée à la régie en ligne (extension/sync.js) : les équipes jouent en ligne, ces infos viennent de là-bas
+	const sync = nodecg.Replicant('syncStatus', { defaultValue: {}, persistent: false });
+	const publishInfo = () => { if ((sync.value || {}).role === 'client') return; const o = onlineNow(), sig = JSON.stringify(o); if (sig !== shown || !info.value || !info.value.urls) { shown = sig; info.value = { urls, lan, online: o }; } };
 	publishInfo();
 	setInterval(publishInfo, 2000).unref();
 

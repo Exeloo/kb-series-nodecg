@@ -7,7 +7,8 @@
 		Données : exporter / importer, sauvegardes automatiques, données de test, réinitialisation, réglages techniques.
 		Écrit : kbAutoReload. Routes : GET data-export[?files=0], POST data-import.
 		Messages : data:backups, data:restore, data:testData, data:clearAll, valorantData:refresh (extension/data-*.js, test-data.js, state.js),
-		companion:info, companion:newToken (extension/companion.js).
+		companion:info, companion:newToken (extension/companion.js), sync:info, sync:connect, sync:disconnect, sync:newToken (extension/sync.js).
+		Lit : syncStatus.
 	-->
 	<link rel="stylesheet" href="../shared/dashboard.css">
 	<style>
@@ -113,6 +114,28 @@
 		<div class="row"><button type="button" class="primary" id="diagRun">Tester la réactivité des overlays (≈ 6 s)</button></div>
 		<div id="diagOut"></div>
 		<div class="msg box" id="diagMsg"></div>
+	</div>
+
+	<h3>8. Deux régies : en ligne ↔ sur place</h3>
+	<div class="card">
+		<div class="hint">La régie <b>en ligne</b> sert au veto des équipes, au choix des maps et au pilotage à distance ; la régie <b>sur place</b> sert les overlays à OBS / vMix,
+			sans délai Internet sur les transitions. Les deux restent synchronisées en direct, dans les deux sens. Les logos et photos sont copiés de la régie en ligne vers celle sur place :
+			envoie-les en ligne. Mode d'emploi : docs/DEPLOIEMENT.md.</div>
+		<div id="syState"></div>
+		<div id="syHub">
+			<label for="syToken">Jeton de cette régie (à copier dans la régie sur place ; ne le partage pas : il donne accès à toutes les données)</label>
+			<div class="row"><input id="syToken" type="password" readonly><button type="button" class="shrink" id="syShow">Voir</button><button type="button" class="shrink" id="syCopy">Copier</button></div>
+			<div class="row"><button type="button" id="syNew">Créer un nouveau jeton</button></div>
+		</div>
+		<div id="syLink">
+			<label for="syUrl">Sur place : adresse de la régie en ligne</label>
+			<input id="syUrl" placeholder="regie.mondomaine.fr">
+			<label for="syRemote">Jeton de la régie en ligne (son panneau Données, section 8)</label>
+			<input id="syRemote" type="password" autocomplete="off">
+			<div class="hint">Au premier contact, les données de la régie en ligne <b>remplacent</b> celles d'ici (sauvegarde faite avant). Ce qui est à l'antenne ici ne bouge pas.</div>
+			<div class="row"><button type="button" class="primary" id="syConnect">Relier à la régie en ligne</button><button type="button" id="syStop">Délier</button></div>
+		</div>
+		<div class="msg box" id="syMsg"></div>
 	</div>
 
 	<script src="../shared/kb.js"></script>
@@ -305,6 +328,60 @@
 				.then((r) => { showToken(r.token); KBD.flash('cpMsg', '✔ Nouveau jeton créé : remplace-le dans Companion (l\'ancien ne marche plus).', 'ok', 0); })
 				.catch((err) => KBD.flash('cpMsg', errText(err), 'err', 0));
 		}, { label: 'Confirmer : l\'ancien jeton ne marchera plus ?' });
+
+		// ---------- 8. Deux régies ----------
+		const syncStatus = nodecg.Replicant('syncStatus', { defaultValue: {}, persistent: false });
+		let syncFromEnv = false;
+		const ago = (t) => (t ? new Date(t).toLocaleTimeString('fr-FR') : '–');
+		syncStatus.on('change', (st) => {
+			st = st || {};
+			const client = st.role === 'client';
+			$('syHub').hidden = client;
+			let level = 'ok', title, lines = [];
+			if (client) {
+				title = st.connected ? `✔ Reliée à ${st.url}` : `⚠ Pas reliée à ${st.url} : reconnexion automatique`;
+				if (!st.connected) level = st.error && /jeton|refus|reliée/i.test(st.error) ? 'bad' : 'warn';
+				if (st.error && !st.connected) lines.push(st.error);
+				if (st.connected) lines.push('Depuis ' + ago(st.since));
+				const a = st.assets;
+				if (a) lines.push(a.error ? 'Logos et photos : ' + a.error : `Logos et photos : ${a.files} fichier(s) en ligne, copie à ${ago(a.at)}${a.failed ? ` (${a.failed} en échec)` : ''}`);
+			} else {
+				const n = (st.clients || []).length;
+				title = n ? `✔ ${n} régie(s) sur place reliée(s) à celle-ci` : 'Aucune régie sur place reliée à celle-ci';
+				if (!n) level = 'warn';
+				lines = (st.clients || []).map((c) => `${c.address} depuis ${ago(c.since)}`);
+			}
+			$('syState').innerHTML = `<div class="dg ${level}"><b>${KB.esc(title)}</b><div class="v">${lines.map((l) => `<div>${KB.esc(l)}</div>`).join('')}</div></div>`;
+			$('syStop').disabled = !client || syncFromEnv;
+		});
+		nodecg.sendMessage('sync:info').then((r) => {
+			$('syToken').value = r.token;
+			if (r.tokenFromEnv) { $('syNew').disabled = true; $('syNew').title = 'Jeton fixé par la variable SYNC_TOKEN'; }
+			if (r.url) $('syUrl').value = r.url;
+			syncFromEnv = r.urlFromEnv;
+			if (syncFromEnv) for (const id of ['syUrl', 'syRemote', 'syConnect', 'syStop']) { $(id).disabled = true; $(id).title = 'Réglé par les variables SYNC_URL / SYNC_TOKEN'; }
+		}).catch((err) => KBD.flash('syMsg', 'Synchronisation indisponible : ' + errText(err), 'err', 0));
+		$('syShow').onclick = () => {
+			const hidden = $('syToken').type === 'password';
+			$('syToken').type = hidden ? 'text' : 'password';
+			$('syShow').textContent = hidden ? 'Cacher' : 'Voir';
+		};
+		$('syCopy').onclick = () => KBD.copy($('syToken').value).then((ok) => KBD.flash('syMsg', ok ? '✔ Copié' : 'Copie impossible : sélectionne le texte', ok ? 'ok' : 'err'));
+		KBD.confirm('syNew', () => {
+			nodecg.sendMessage('sync:newToken')
+				.then((r) => { $('syToken').value = r.token; KBD.flash('syMsg', '✔ Nouveau jeton : recopie-le dans la régie sur place (l\'ancien ne marche plus).', 'ok', 0); })
+				.catch((err) => KBD.flash('syMsg', errText(err), 'err', 0));
+		}, { label: 'Confirmer : la régie sur place sera déconnectée ?' });
+		KBD.confirm('syConnect', () => {
+			nodecg.sendMessage('sync:connect', { url: $('syUrl').value, token: $('syRemote').value })
+				.then((r) => { $('syUrl').value = r.url; $('syRemote').value = ''; KBD.flash('syMsg', '✔ Connexion en cours…', 'ok'); })
+				.catch((err) => KBD.flash('syMsg', errText(err), 'err', 0));
+		}, { label: 'Confirmer : les données d\'ici seront remplacées par celles en ligne ?' });
+		KBD.confirm('syStop', () => {
+			nodecg.sendMessage('sync:disconnect')
+				.then(() => KBD.flash('syMsg', '✔ Déliée : cette régie fonctionne seule.', 'ok'))
+				.catch((err) => KBD.flash('syMsg', errText(err), 'err', 0));
+		}, { label: 'Confirmer : ne plus suivre la régie en ligne ?' });
 	</script>
 </body>
 </html>

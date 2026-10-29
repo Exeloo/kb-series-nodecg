@@ -27,6 +27,7 @@ extension/               serveur du bundle
   tracker-routes.js      routes HTTP de l'import tracker.gg (+ static/ : tracker-receiver.html, tracker-guide.html)
   veto-teams.js          liens de veto envoyés aux équipes : routes HTTP, contrôle des tours (+ static/veto-team.html)
   companion.js           API HTTP à jeton pour Bitfocus Companion (docs/COMPANION.md)
+  sync.js                synchro en direct de deux régies (en ligne ↔ sur place) : replicants dans les deux sens, logos et photos d'en ligne vers sur place (voir « Deux régies »)
   live.js maps.js match.js player.js bracket.js scenes.js   replicants et logique de chaque partie
   diag.js                diagnostic du direct : délai réseau et d'affichage des commandes dans chaque page d'overlay ouverte
   planning.js            planning de la journée : heures et classement des groupes recopiés dans le bracket, liste `schedule`, score du match en cours
@@ -40,7 +41,7 @@ docs/                    documentation
 start.bat, start-reseau.bat   lanceurs Windows (ASCII, CRLF)
 Dockerfile, docker-compose.yml, .env.example, .railwayignore, .dockerignore   mise en ligne (docs/DEPLOIEMENT.md)
 ```
-Hors git : `db/` (base `nodecg.sqlite3`, `backups/`, `tracker/`, `session-secret`, `companion-token`), `assets/`, `exports/`, `shots/`, `Medias/`, `logs/`, `node_modules/`.
+Hors git : `db/` (base `nodecg.sqlite3`, `backups/`, `tracker/`, `session-secret`, `companion-token`, `sync-token`, `sync.json`, `sync-assets.json`), `assets/`, `exports/`, `shots/`, `Medias/`, `logs/`, `node_modules/`.
 
 ## Flux de données
 
@@ -86,6 +87,7 @@ Les replicants sont persistés par NodeCG dans `db/` (sauf mention). « Défaut 
 | `kbAutoReload` | Interrupteur du rechargement automatique | `dev-reload.js` | Données | — | `true` (`dev-reload.js`) |
 | `kbBuild` | « Version » du code ; non persistant | `dev-reload.js` | — | tous (via `shared/kb.js`) | `0` |
 | `playerPhotos` | Ancien stockage des photos, vidé au démarrage (migration) | `state.js` | — | — | `{}` |
+| `syncStatus` | Non persisté : `{ role: 'hub', clients: [{ id, address, since }] }` ou `{ role: 'client', url, connected, since, error, assets }`. Sur une régie reliée (`client`), `veto-teams.js` ne publie plus `vetoTeamsInfo` (reçu d'en ligne) | `sync.js` | — (lu par Données) | — | `{}` |
 
 Les sauvegardes, l'export et l'import portent sur la liste `NAMES` de `extension/lib/backup.js` (tous les replicants ci-dessus sauf `valorantData`, `mapsExport`, `kbAutoReload`, `kbBuild`, `playerPhotos`). Après un import ou une restauration, `backup.apply` masque tous les overlays (`OVERLAYS`) et remet `streamScene` sur `none`.
 
@@ -109,6 +111,10 @@ Les sauvegardes, l'export et l'import portent sur la liste `NAMES` de `extension
 | `companion:info` | — | `{ token, fromEnv }` (jeton de l'API Companion) | `companion.js` |
 | `companion:newToken` | — | `{ token }` (l'ancien ne marche plus) ; refusé si `COMPANION_TOKEN` est fixé | `companion.js` |
 | `diag:run` | — | `{ sent, clients: [{ client, ua, pages: [{ page, got, net, raf, tmo, vis, transport }] }] }` (≈ 6 s) | `diag.js` |
+| `sync:info` | — | `{ token, tokenFromEnv, url, urlFromEnv }` (jeton de cette régie, régie en ligne suivie) | `sync.js` |
+| `sync:connect` | `{ url, token }` | `{ url }` : enregistré dans `db/sync.json`, connexion lancée ; refusé si `SYNC_URL` est fixée | `sync.js` |
+| `sync:disconnect` | — | `{ stopped }` | `sync.js` |
+| `sync:newToken` | — | `{ token }` (régies reliées déconnectées) ; refusé si `SYNC_TOKEN` est fixé | `sync.js` |
 | `diag:pong` | envoyé par les pages graphiques : `{ run, id, stage: 'recv' \| 'frame', raf?, tmo?, client, page, ua, vis, transport }` | — | `diag.js` |
 
 Une erreur levée dans un handler est renvoyée au panneau comme message d'erreur (texte) ; `TypeError` / `ReferenceError` sont journalisées avec la pile.
@@ -129,6 +135,16 @@ Une erreur levée dans un handler est renvoyée au panneau comme message d'erreu
 | `GET\|POST /valorant-tournament/api/…` | jeton Companion (+ même origine pour un POST) | API de pilotage : overlays, scène, transition, lower thirds, score, état. Détail de chaque route : [COMPANION.md](COMPANION.md#4-référence-de-lapi) | `companion.js` |
 
 `nodecg.mount` n'applique aucune authentification : toute route ajoutée doit utiliser `requireLogin` (et `sameOrigin` pour un POST), voir `extension/lib/http.js`. Exceptions voulues : les pages de veto des équipes, protégées par leur jeton et limitées au veto de leur équipe ; l'API Companion, protégée par son jeton (`db/companion-token` ou `COMPANION_TOKEN`), qui reproduit côté serveur les règles de `KBO` (plein écran exclusif) et de la Régie (scène, transition). Une route ajoutée à cette API se documente à deux endroits : `docs/COMPANION.md` et `ROUTES` (et `QUICK` si besoin) dans `dashboard/companion.html`. Pas de connexion permanente (SSE, WebSocket) sur ces routes : NodeCG attendrait sa fermeture pour s'arrêter. « Connexion » n'a d'effet que si un mot de passe est configuré.
+
+### Deux régies (`extension/sync.js`)
+Une régie **sur place** (overlays servis en local à OBS / vMix) se relie à la régie **en ligne** (veto des équipes, maps, pilotage à distance) : elle ouvre une connexion socket.io sortante vers l'espace `/kb-sync` du serveur NodeCG en ligne (même port ; jeton `SYNC_TOKEN` ou `db/sync-token`, vérifié par `nsp.use` : la connexion de NodeCG ne protège que l'espace `/`). Réglage : `SYNC_URL` + `SYNC_TOKEN`, sinon panneau Données (`db/sync.json`). Une régie reliée refuse elle-même toute régie (pas de chaîne).
+- **Replicants recopiés** : `NAMES` de `lib/backup.js` + `transition` + `vetoTeams` dans les deux sens ; `valorantData`, `vetoTeamsInfo` d'en ligne vers sur place seulement. Tout autre replicant reste propre à chaque régie. Un replicant ajouté à `NAMES` est donc synchronisé d'office.
+- **Champ par champ** : chaque changement part en opérations `{ p: chemin, v }` calculées par rapport à la dernière valeur commune (`diff` / `patch`) ; deux écritures sur des champs différents se fusionnent. La régie en ligne fait foi : elle confirme chaque envoi (`ack` avec sa valeur) ; tant qu'un envoi plus récent est en route, la confirmation précédente est ignorée (pas de retour en arrière visible).
+- **Les deux serveurs exécutent les mêmes réactions** (`match.js`, `planning.js`, `bracket.js`, minuteurs de `live.js`…) : elles doivent rester déterministes (même entrée → même valeur), sinon les deux régies se renverraient la balle. Une valeur reçue identique à la valeur locale n'est jamais réécrite.
+- **(Re)connexion** : la régie en ligne envoie un instantané. Premier contact après un démarrage : ses valeurs priment. Après une coupure : les changements faits sur place pendant la coupure (écart avec la dernière valeur commune) sont rejoués sur l'instantané puis renvoyés. Sauvegarde `avant-synchro` si l'instantané change des données d'ici (hors overlays) : toujours au premier contact, puis au plus une fois par 10 minutes. Dans tous les cas, rien ne change à l'antenne (`keepOnAir`) : dans `OVERLAYS`, un objet `visible: true` ici est gardé en entier (contenu compris), un `visible: false` le reste ; `streamScene` reste celle d'ici ; `transition` n'est jamais reprise de l'instantané (elle relancerait un stinger).
+- **Logos et photos** : copiés d'en ligne vers sur place (`assets:list`, `assets:get` sur la socket ; empreinte SHA-1), écrits en `.part` puis renommés. Un fichier supprimé en ligne est supprimé sur place s'il n'y a pas été modifié depuis sa copie (`db/sync-assets.json`). Rien ne remonte : un logo envoyé seulement sur place n'existe pas en ligne.
+- **Gros messages** : socket.io refuse plus de 1 Mo reçu par le serveur ; au-delà de 256 k caractères, la régie reliée découpe son message (`part`).
+- Heures absolues (`countdown.endsAt`, `hideAt`) : écrites par une régie, lues sur l'autre machine ; les horloges des deux machines doivent être à l'heure (synchronisation automatique de Windows).
 
 ## Le socle partagé (`shared/`)
 | Objet | Fichier | Rôle |

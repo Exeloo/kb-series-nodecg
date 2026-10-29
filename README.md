@@ -36,7 +36,7 @@ Scènes d'attente, overlays et transition se pilotent ensuite depuis la **Régie
 | **Planning de la journée** | 2. Écrans & Tournoi | Matchs du jour en créneaux d'une heure, phases (poules → grande finale), diffusés ou non, lancement du match sur le stream ; lié au bracket et au match en cours |
 | **Écrans (attente, pause, fin)** | 2. Écrans & Tournoi | Compte à rebours, textes des écrans, infos du tournoi |
 | **Bracket & Groupes** | 2. Écrans & Tournoi | Classement des groupes et phase finale |
-| **Données · sauvegarde, import, réglages** | 3. Données | Exporter / importer, sauvegardes, données de test, réinitialisation, jeton Bitfocus Companion |
+| **Données · sauvegarde, import, réglages** | 3. Données | Exporter / importer, sauvegardes, données de test, réinitialisation, jeton Bitfocus Companion, deux régies (en ligne ↔ sur place) |
 | **Companion · boutons et API** | Companion (onglet plein écran) | Boutons Bitfocus Companion prêts à copier (URL, en-tête, corps), constructeur et test de chaque route, référence de l'API |
 
 Visite guidée, bouton par bouton : [docs/REGIE.md](docs/REGIE.md).
@@ -77,7 +77,7 @@ Pour garder une copie ou changer de PC : panneau **Données** → **⬇ Exporter
 
 ## Aller plus loin
 - [docs/JOUR-DE-MATCH.md](docs/JOUR-DE-MATCH.md) : checklist imprimable, de la veille au soir.
-- [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md) : mettre la régie en ligne (Railway, serveur perso).
+- [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md) : mettre la régie en ligne (Railway, serveur perso), et la relier à une régie sur place qui sert les overlays sans délai.
 - [docs/COMPANION.md](docs/COMPANION.md) : piloter la régie depuis un Stream Deck avec Bitfocus Companion (API HTTP) ; la même chose, avec les valeurs prêtes à copier, dans l'onglet **Companion** du tableau de bord.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) : fonctionnement du code (développeurs, agents IA).
 - [tools/tracker-extension/README.md](tools/tracker-extension/README.md) : extension d'import tracker.gg (Chrome, Edge, Firefox).
