@@ -142,8 +142,9 @@
 		.phase .bar::before { left: -18px; transform-origin: right; transform: rotate(-38deg); }
 		.phase .bar::after { right: -18px; transform-origin: left; transform: rotate(38deg); }
 		.phase .kb-pill { position: relative; overflow: hidden; white-space: nowrap; }
-		.phase .kb-pill::after { content: ''; position: absolute; top: 0; bottom: 0; width: 60px; left: 0; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .7), transparent); transform: translateX(-80px) skewX(-20deg); animation: bk-pill 6s ease-in-out infinite; animation-delay: var(--pd, 4s); }
-		@keyframes bk-pill { 0% { transform: translateX(-80px) skewX(-20deg); } 30%, 100% { transform: translateX(520px) skewX(-20deg); } }
+		.phase .kb-pill::after { content: ''; position: absolute; top: 0; bottom: 0; width: 60px; left: -80px; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .7), transparent); transform: skewX(-20deg); animation: bk-pill 6s ease-in-out infinite; animation-delay: var(--pd, 4s); }
+		/* Reflet sur toute la largeur de la pastille (position en %), quel que soit son texte */
+		@keyframes bk-pill { 0% { left: -80px; } 30%, 100% { left: calc(100% + 20px); } }
 
 		/* ---------- Partenaires ---------- */
 		#partners { position: absolute; left: 0; right: 0; bottom: 46px; display: flex; justify-content: center; align-items: center; gap: 22px; font: 600 14px var(--kb-ui); letter-spacing: .3em; text-transform: uppercase; color: var(--kb-muted); }

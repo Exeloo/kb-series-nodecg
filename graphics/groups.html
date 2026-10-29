@@ -41,8 +41,9 @@
 		#head .icon .mid { animation: gp-bob 4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom; }
 		@keyframes gp-bob { 0%, 100% { transform: none; } 50% { transform: translateY(-2px) scale(1.03); } }
 		#head .kb-pill { position: relative; overflow: hidden; }
-		#head .kb-pill::after { content: ''; position: absolute; top: 0; bottom: 0; width: 50px; left: 0; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .7), transparent); transform: translateX(-70px) skewX(-20deg); animation: gp-pill 6s ease-in-out 3s infinite; }
-		@keyframes gp-pill { 0% { transform: translateX(-70px) skewX(-20deg); } 30%, 100% { transform: translateX(200px) skewX(-20deg); } }
+		#head .kb-pill::after { content: ''; position: absolute; top: 0; bottom: 0; width: 50px; left: -70px; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .7), transparent); transform: skewX(-20deg); animation: gp-pill 6s ease-in-out 3s infinite; }
+		/* Reflet sur toute la largeur de la pastille (position en %), quel que soit son texte */
+		@keyframes gp-pill { 0% { left: -70px; } 30%, 100% { left: calc(100% + 20px); } }
 
 		/* ---------- Groupes ---------- */
 		#board { position: absolute; left: 96px; right: 96px; top: 222px; bottom: 120px; display: grid; gap: 28px 48px; align-content: center; }

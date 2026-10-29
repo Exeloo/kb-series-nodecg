@@ -22,8 +22,9 @@
 #pl-head .date { font: 400 44px/1 var(--kb-display); color: var(--kb-blue-hi); letter-spacing: .02em; text-shadow: 0 0 20px var(--kb-blue-glow); white-space: nowrap; }
 #pl-head .kb-pill { position: relative; overflow: hidden; }
 #pl-head .kb-pill:empty { display: none; }
-#pl-head .kb-pill::after { content: ''; position: absolute; top: 0; bottom: 0; width: 50px; left: 0; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .7), transparent); transform: translateX(-70px) skewX(-20deg); animation: pl-pill 6s ease-in-out 3s infinite; }
-@keyframes pl-pill { 0% { transform: translateX(-70px) skewX(-20deg); } 30%, 100% { transform: translateX(260px) skewX(-20deg); } }
+#pl-head .kb-pill::after { content: ''; position: absolute; top: 0; bottom: 0; width: 50px; left: -70px; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .7), transparent); transform: skewX(-20deg); animation: pl-pill 6s ease-in-out 3s infinite; }
+/* Le reflet traverse toute la pastille, quelle que soit la longueur du lieu : position en % de sa largeur */
+@keyframes pl-pill { 0% { left: -70px; } 30%, 100% { left: calc(100% + 20px); } }
 #pl-rule { position: absolute; left: 96px; right: 96px; top: 190px; overflow: hidden; }
 #pl-root.kb-in #pl-rule { animation: pl-grow .9s var(--kb-ease-out) .3s both; }
 #pl-root.kb-settled #pl-rule { animation: none; }

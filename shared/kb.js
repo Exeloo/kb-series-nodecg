@@ -26,11 +26,16 @@
 		Object.defineProperty(KB.rep, name, { get() { return (this['_' + name] ||= nodecg.Replicant(name)); } });
 	}
 
-	/** Attend des replicants puis appelle render à chaque changement de l'un d'eux (render groupé par frame). */
+	/**
+	 * Attend des replicants puis appelle render à chaque changement de l'un d'eux (render groupé par frame).
+	 * Le rendu part à la prochaine image, ou au plus tard après 50 ms : un navigateur qui ralentit ou suspend ses images
+	 * (source vMix / OBS jugée hors écran, onglet en arrière-plan) appliquerait sinon la commande avec retard, voire pas du tout.
+	 */
 	KB.watch = (names, render) => {
 		const reps = names.map((n) => (typeof n === 'string' ? KB.rep[n] || nodecg.Replicant(n) : n));
-		let queued = false;
-		const schedule = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; render(); }); };
+		let queued = false, raf = 0, timer = 0;
+		const run = () => { if (!queued) return; queued = false; cancelAnimationFrame(raf); clearTimeout(timer); render(); };
+		const schedule = () => { if (queued) return; queued = true; raf = requestAnimationFrame(run); timer = setTimeout(run, 50); };
 		NodeCG.waitForReplicants(...reps).then(() => { reps.forEach((r) => r.on('change', schedule)); schedule(); });
 		return reps;
 	};
@@ -326,6 +331,33 @@
 		build.on('change', (v) => {
 			if (first === null) { first = v; return; }
 			if (v && v !== first) setTimeout(() => location.reload(), 300 + Math.random() * 700);
+		});
+	}
+
+	// Diagnostic du direct (panneau Données, extension/diag.js) : chaque page d'overlay répond à une mesure (replicant diagPing)
+	// avec le temps de réception, puis le temps jusqu'à la prochaine image affichée. Un navigateur qui suspend ses images
+	// (source vMix / OBS jugée hors écran) se voit ainsi. Pas dans l'aperçu / l'export du stinger.
+	if (/\/graphics\//.test(location.pathname) && !/[?&](export|preview)=/.test(location.search)) {
+		const page = location.pathname.split('/').pop() || '?';
+		// Un identifiant par navigateur : les iframes de stream.html reprennent celui de la page parente
+		let client;
+		try { client = (window.top.__kbDiagClient ||= Math.random().toString(36).slice(2, 8)); } catch { client = Math.random().toString(36).slice(2, 8); }
+		const diag = nodecg.Replicant('diagPing', { defaultValue: { run: null, id: null, t: 0 }, persistent: false });
+		let seen = null; // mesure déjà présente au chargement : ignorée
+		diag.on('change', (v) => {
+			if (seen === null) { seen = (v && v.id) || ''; return; }
+			if (!v || !v.id || v.id === seen) return;
+			seen = v.id;
+			const sock = window.socket && window.socket.io && window.socket.io.engine;
+			const base = { run: v.run, id: v.id, client, page, ua: navigator.userAgent, vis: document.visibilityState, transport: sock && sock.transport ? sock.transport.name : '', framed: window.parent !== window };
+			const send = (extra) => nodecg.sendMessage('diag:pong', { ...base, ...extra }).catch(() => {});
+			send({ stage: 'recv' });
+			const t0 = performance.now();
+			let raf = null, tmo = null, sent = false;
+			const frame = () => { if (sent) return; sent = true; send({ stage: 'frame', raf, tmo }); };
+			setTimeout(() => { tmo = Math.round(performance.now() - t0); }, 0);
+			requestAnimationFrame(() => { raf = Math.round(performance.now() - t0); setTimeout(frame, 0); });
+			setTimeout(frame, 3000);
 		});
 	}
 

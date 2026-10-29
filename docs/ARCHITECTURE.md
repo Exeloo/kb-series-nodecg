@@ -27,6 +27,7 @@ extension/               serveur du bundle
   veto-teams.js          liens de veto envoyés aux équipes : routes HTTP, contrôle des tours (+ static/veto-team.html)
   companion.js           API HTTP à jeton pour Bitfocus Companion (docs/COMPANION.md)
   live.js maps.js match.js player.js bracket.js scenes.js   replicants et logique de chaque partie
+  diag.js                diagnostic du direct : délai réseau et d'affichage des commandes dans chaque page d'overlay ouverte
   planning.js            planning de la journée : heures et classement des groupes recopiés dans le bracket, liste `schedule`, score du match en cours
   data-admin.js          réinitialisation par catégories, liste et restauration des sauvegardes
   data-transfer.js       export / import d'un fichier complet (données + assets en base64)
@@ -71,6 +72,7 @@ Les replicants sont persistés par NodeCG dans `db/` (sauf mention). « Défaut 
 | `liveDualCam` | Étiquettes et bandeau de l'écran 50/50 | `live.js` | Écran 50/50 | dual-cam | `shared/live.js` |
 | `fullscreenStinger` | `{ enabled }` : afficher / masquer un plein écran passe par le stinger (changement au point de coupe, minuteur côté serveur) | `companion.js` | Régie (case, via `KBO.stinger`), API | — | `shared/overlay-list.js` (`KBOList.STINGER_DEFAULT`) |
 | `liveReplayBug` | `{ visible }` : bug « REPLAY » en haut à droite | `live.js` | Régie (via `KBO`) | replay-bug | `shared/live.js` (`LIVE.defaults`) |
+| `diagPing` | `{ run, id, t }` non persistant : mesure du diagnostic du direct, chaque page graphique répond (`kb.js`) | `diag.js` | — | toutes (réponse `diag:pong`) | `extension/diag.js` |
 | `mapsGraphics` | Visibilité + map / MVP de intro, series, result | `maps.js` | Maps & Transitions, Régie, Équipes & Joueurs (renommage) | map-intro, map-series, map-result | `shared/maps.js` (`KBM.DEFAULT`) |
 | `mapsTransitionSettings` | Réglages du stinger + préréglages perso | `maps.js` | Maps & Transitions | transition | `shared/maps.js` (`KBM.TRANSITION_DEFAULT`) |
 | `mapsExport` | État de l'export PNG | `maps.js` | — | — (lu par Maps & Transitions) | `extension/maps.js` |
@@ -105,6 +107,8 @@ Les sauvegardes, l'export et l'import portent sur la liste `NAMES` de `extension
 | `transition:cancel` | — | `{ cancelled }` : annule l'action en attente d'une transition lancée par le serveur (Régie, « Tout masquer ») | `companion.js` |
 | `companion:info` | — | `{ token, fromEnv }` (jeton de l'API Companion) | `companion.js` |
 | `companion:newToken` | — | `{ token }` (l'ancien ne marche plus) ; refusé si `COMPANION_TOKEN` est fixé | `companion.js` |
+| `diag:run` | — | `{ sent, clients: [{ client, ua, pages: [{ page, got, net, raf, tmo, vis, transport }] }] }` (≈ 6 s) | `diag.js` |
+| `diag:pong` | envoyé par les pages graphiques : `{ run, id, stage: 'recv' \| 'frame', raf?, tmo?, client, page, ua, vis, transport }` | — | `diag.js` |
 
 Une erreur levée dans un handler est renvoyée au panneau comme message d'erreur (texte) ; `TypeError` / `ReferenceError` sont journalisées avec la pile.
 
@@ -128,7 +132,7 @@ Une erreur levée dans un handler est renvoyée au panneau comme message d'erreu
 ## Le socle partagé (`shared/`)
 | Objet | Fichier | Rôle |
 |---|---|---|
-| `KB` | `kb.js` | Socle de toutes les pages : `KB.esc`, `KB.rep.<coeur>`, `KB.watch(names, render)` (rendu groupé par image), équipes (`team`, `sides`, `seriesScore`, `teamColor`, `teamLogo`, `orderedTeams`), données Valorant (`map`, `agent`, `mapNames`, `agentInfo`), joueurs (`player`, `roster`, `pickOf`, `teamOf`, `key`, `roleLabel`), animations (`presence`, `scene`, `restart`, `countUp`, `fit`), `formatCountdown`. Contient aussi le rechargement automatique des graphics (`kbBuild`). |
+| `KB` | `kb.js` | Socle de toutes les pages : `KB.esc`, `KB.rep.<coeur>`, `KB.watch(names, render)` (rendu groupé par image, au plus tard 50 ms après le changement même si le navigateur ne dessine pas), équipes (`team`, `sides`, `seriesScore`, `teamColor`, `teamLogo`, `orderedTeams`), données Valorant (`map`, `agent`, `mapNames`, `agentInfo`), joueurs (`player`, `roster`, `pickOf`, `teamOf`, `key`, `roleLabel`), animations (`presence`, `scene`, `restart`, `countUp`, `fit`), `formatCountdown`. Contient aussi le rechargement automatique des graphics (`kbBuild`) et la réponse au diagnostic du direct (`diagPing`). |
 | `KBDefaults` | `defaults.js` | Valeurs par défaut des replicants coeur (fonctions qui renvoient un objet neuf), `DEFAULT_POOL`, `COUNTDOWN_LABEL`. UMD. |
 | `KBD` | `dash.js` | Outils des panneaux : `flash`, `confirm` / `arm` (2 clics), `deferWhileEditing`, `fillSelect`, `teamOptions`, `getPath` / `setPath`, `bindDirty` (brouillon + « non appliqué »). |
 | `KBOList` | `overlay-list.js` | Liste des overlays pilotables (`ITEMS` : id, replicant, chemin du booléen, plein écran, `needs`) et des scènes de fond (`SCENES`). UMD : lue par `KBO`, la Régie et l'API Companion. |

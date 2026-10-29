@@ -11,11 +11,15 @@
 		  3. Overlays en jeu (lower thirds, ticker)
 		  4. Transition (stinger) tout en haut
 		Replicant lu : `streamScene` = { scene: 'none'|'starting'|'brb'|'ending'|'schedule'|'dual-cam', via: 'cut'|'fade', at },
-		piloté par la régie (dashboard/regie.html). Le rechargement automatique (kb.js) recharge cette page, donc toutes les couches.
+		piloté par la régie (dashboard/regie.html). Les écrans de fond sont tous chargés au démarrage (en pause tant qu'ils sont masqués) :
+		en changer ne recharge aucune page. Le rechargement automatique (kb.js) recharge cette page, donc toutes les couches.
 	-->
 	<style>
 		html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
 		iframe { position: absolute; inset: 0; width: 1920px; height: 1080px; border: 0; background: transparent; pointer-events: none; }
+		/* Deux contextes d'empilement : les écrans de fond (z-index entre eux) restent toujours sous les overlays */
+		#scenes, #layers { position: absolute; inset: 0; }
+		#scenes { z-index: 0; } #layers { z-index: 1; }
 		.scene { transition: opacity .5s ease; }
 		.scene.pending { opacity: 0; }
 		.scene.cut { transition: none; }
@@ -39,7 +43,6 @@
 		];
 		const SCENES = ['starting', 'brb', 'ending', 'schedule', 'dual-cam'];
 		const FADE_MS = 550;      // un peu plus que la transition CSS de .scene
-		const LOAD_MAX_MS = 5000; // une scène qui ne finit pas de charger s'affiche quand même
 
 		const layers = document.getElementById('layers');
 		for (const name of LAYERS) {
@@ -51,51 +54,67 @@
 		}
 
 		// ---------- Scène de fond ----------
-		// La nouvelle scène se charge invisible (.pending) PAR-DESSUS l'ancienne, qui reste à l'écran jusqu'à ce que
-		// la nouvelle soit prête : jamais de trou entre deux scènes. Seule la dernière scène demandée compte.
+		// Les écrans de fond sont chargés une fois pour toutes au démarrage, invisibles et en pause (.kb-idle) : en changer ne
+		// recharge rien (sur une régie en ligne, recharger une page prenait 1 à 3 s). La scène demandée passe au-dessus,
+		// ses entrées sont rejouées, puis l'ancienne est masquée (tout de suite en coupe, après le fondu sinon).
 		const scenesBox = document.getElementById('scenes');
-		let current = { scene: 'none', el: null }; // scène à l'écran
-		let next = null;                           // scène en cours de chargement { scene, el, timer }
-
-		function cancelNext() {
-			if (!next) return;
-			clearTimeout(next.timer);
-			next.el.remove();
-			next = null;
-		}
-
-		function show(scene, fade) {
-			if (!SCENES.includes(scene)) scene = 'none';
-			if (scene === (next ? next.scene : current.scene)) return;
-			cancelNext();
-			if (scene === current.scene) return; // retour à la scène affichée pendant un chargement
-
-			if (scene === 'none') {
-				const old = current.el;
-				current = { scene, el: null };
-				if (fade) { old.classList.remove('cut'); old.classList.add('pending'); setTimeout(() => old.remove(), FADE_MS); } else old.remove();
-				return;
+		const frames = {};      // scène → { el, loaded }
+		let current = 'none';   // scène à l'écran (ou demandée, en attente de son chargement)
+		let z = 1, wait = null; // wait : scène pas encore chargée, révélée à son chargement
+		const doc = (f) => { try { return f.el.contentDocument; } catch { return null; } };
+		// Animations en pause tant que l'écran est masqué (même règle que les overlays : theme.css, .kb-idle)
+		const idle = (f, on) => { const d = doc(f); if (d && d.documentElement) d.documentElement.classList.toggle('kb-idle', on); };
+		// Rejoue les entrées de la page (classes .kb-in / .kb-settled posées par KB.scene, KBScenes.enter, KBPV…)
+		function replay(f) {
+			const d = doc(f);
+			if (!d) return;
+			for (const el of d.querySelectorAll('.kb-in')) {
+				const settled = el.classList.contains('kb-settled');
+				el.classList.remove('kb-in', 'kb-settled');
+				void el.offsetWidth;
+				el.classList.add('kb-in');
+				if (settled) setTimeout(() => el.classList.add('kb-settled'), 3000);
 			}
-
+		}
+		for (const scene of SCENES) {
 			const el = document.createElement('iframe');
-			el.className = 'scene pending' + (fade ? '' : ' cut');
+			el.className = 'scene pending cut';
 			el.src = BASE + scene + '.html';
 			el.title = scene;
+			const f = frames[scene] = { el, loaded: false };
+			el.addEventListener('load', () => {
+				f.loaded = true;
+				idle(f, current !== scene);
+				if (wait === scene) { wait = null; reveal(scene, false); }
+			});
 			scenesBox.appendChild(el);
-			const n = next = { scene, el, timer: 0 };
-			const reveal = () => {
-				if (next !== n) return; // remplacée entre-temps par une autre demande
-				clearTimeout(n.timer);
-				next = null;
-				const old = current.el;
-				current = { scene, el };
-				el.classList.remove('pending');
-				// Coupe : l'ancienne disparaît dans la même image ; fondu : elle reste dessous jusqu'à la fin du fondu
-				if (old) { if (fade) setTimeout(() => old.remove(), FADE_MS); else old.remove(); }
-			};
-			// load = document de la scène chargé ; 2 images de plus pour qu'il soit peint avant d'être révélé
-			el.addEventListener('load', () => requestAnimationFrame(() => requestAnimationFrame(reveal)), { once: true });
-			n.timer = setTimeout(reveal, LOAD_MAX_MS);
+		}
+
+		function hideFrame(f, fade) {
+			const done = () => { if (current !== f.el.title) { f.el.classList.add('cut', 'pending'); idle(f, true); } };
+			if (fade) { f.el.classList.remove('cut'); f.el.classList.add('pending'); setTimeout(done, FADE_MS); } else done();
+		}
+		function reveal(scene, fade) {
+			const f = frames[scene];
+			idle(f, false);
+			replay(f);
+			f.el.style.zIndex = ++z;
+			f.el.classList.toggle('cut', !fade);
+			void f.el.offsetWidth;
+			f.el.classList.remove('pending');
+			// Coupe : les autres disparaissent dans la même image ; fondu : elles restent dessous jusqu'à la fin du fondu
+			for (const [name, o] of Object.entries(frames)) if (name !== scene && !o.el.classList.contains('pending')) {
+				if (fade) setTimeout(() => { if (current === scene) hideFrame(o, false); }, FADE_MS); else hideFrame(o, false);
+			}
+		}
+		function show(scene, fade) {
+			if (!SCENES.includes(scene)) scene = 'none';
+			if (scene === current) return;
+			current = scene;
+			wait = null;
+			if (scene === 'none') { for (const f of Object.values(frames)) if (!f.el.classList.contains('pending')) hideFrame(f, fade); return; }
+			if (frames[scene].loaded) reveal(scene, fade);
+			else wait = scene; // encore en chargement (juste après l'ouverture de la page) : révélée dès qu'elle est prête
 		}
 
 		const streamScene = nodecg.Replicant('streamScene', { defaultValue: KBDefaults.streamScene() });

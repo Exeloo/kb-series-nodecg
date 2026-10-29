@@ -171,6 +171,7 @@ Le planning, le bracket et le match en cours sont liés : un match de phase fina
 - **3. Tester** : **Charger des données de test** (2 clics) remplit match, scores, veto, agents, planning, bracket et compte à rebours pour répéter. Aucun joueur créé ; tes équipes sont gardées (des équipes adverses vides sont ajoutées s'il en faut 8).
 - **4. Réinitialiser** : coche les catégories à effacer, puis **Réinitialiser la sélection** (2 clics, sauvegarde avant).
 - **5. Réglages** : **Recharger automatiquement les overlays quand leur code change** (à couper pendant le direct) ; **↻ Mettre à jour les maps et agents Valorant**.
+- **7. Diagnostic du direct** : **Tester la réactivité des overlays** envoie 5 mesures à toutes les pages d'overlay ouvertes (vMix, OBS…) ; pour chaque navigateur, le délai réseau et le délai d'affichage, page par page, et la cause probable d'un retard. Voir [OBS.md](OBS.md#commandes-en-retard-ou-ignorées-vmix-obs).
 - **6. Bitfocus Companion** : adresse de l'API et jeton secret (**Voir**, **Copier**), **Créer un nouveau jeton** (2 clics). Mise en place des boutons : onglet **Companion** (ci-dessous) ou [COMPANION.md](COMPANION.md).
 
 Tout le détail : [DONNEES.md](DONNEES.md).

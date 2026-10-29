@@ -19,6 +19,15 @@
 		.bk button { flex: 0 0 auto; padding: 5px 10px; font-size: 12px; }
 		.cats { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
 		.cats .chk { font-size: 12px; }
+		.dg { margin-top: 8px; padding: 8px; border-radius: 6px; border: 1px solid var(--line); border-left: 3px solid var(--ok); }
+		.dg.warn { border-left-color: var(--gold); } .dg.bad { border-left-color: var(--red); }
+		.dg b { display: block; }
+		.dg .v { font-size: 12px; margin-top: 3px; }
+		.dg .v div + div { margin-top: 2px; }
+		.dg table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 11px; }
+		.dg th, .dg td { padding: 2px 4px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+		.dg th { color: var(--muted); font-weight: 600; }
+		.dg td.bad { color: var(--red); } .dg td.warn { color: var(--gold); }
 		/* Libellé lu par les lecteurs d'écran seulement */
 	</style>
 </head>
@@ -94,6 +103,16 @@
 		<div class="hint">Companion sur un autre PC : lance la régie avec <b>start-reseau.bat</b> et remplace <code>localhost</code> par l'adresse de ce PC.</div>
 		<div class="row"><button type="button" id="cpNew">Créer un nouveau jeton</button></div>
 		<div class="msg box" id="cpMsg"></div>
+	</div>
+
+	<h3>7. Diagnostic du direct</h3>
+	<div class="card">
+		<div class="hint">Une commande AFFICHER / MASQUER en retard ou ignorée ? Laisse vMix / OBS ouverts avec leurs overlays, puis lance le test :
+			5 mesures envoyées à toutes les pages d'overlay ouvertes, comme de vraies commandes (rien ne change à l'écran).
+			Pour chaque navigateur : le temps pour que la commande arrive (réseau) et le temps pour qu'elle soit affichée (navigateur).</div>
+		<div class="row"><button type="button" class="primary" id="diagRun">Tester la réactivité des overlays (≈ 6 s)</button></div>
+		<div id="diagOut"></div>
+		<div class="msg box" id="diagMsg"></div>
 	</div>
 
 	<script src="../shared/kb.js"></script>
@@ -222,6 +241,50 @@
 				.finally(() => { $('vdRefresh').disabled = false; });
 		};
 		KB.watch(['valorantData'], renderValorantData);
+
+		// ---------- 7. Diagnostic du direct (extension/diag.js) ----------
+		// Seuils : au-delà, la cause probable est signalée (réseau, WebSocket bloqué, navigateur qui suspend ses images)
+		const NET_SLOW = 250, FRAME_SLOW = 200;
+		const esc = KB.esc;
+		const uaName = (ua) => (/vMix/i.test(ua) ? 'vMix' : /OBS/i.test(ua) ? 'OBS' : /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox'
+			: /Chrome\/(\d+)/.test(ua) ? 'Chrome ' + /Chrome\/(\d+)/.exec(ua)[1] : 'Navigateur');
+		const ms = (v) => (v === null || v === undefined ? '—' : v + ' ms');
+		function verdict(c, sent) {
+			const out = [];
+			const lost = c.pages.filter((p) => p.got < sent);
+			const poll = c.pages.filter((p) => p.transport && p.transport !== 'websocket');
+			const net = Math.max(0, ...c.pages.map((p) => p.netMax || 0));
+			const frozen = c.pages.filter((p) => p.rafMissed > 0 || (p.rafMax || 0) > FRAME_SLOW);
+			const hidden = c.pages.filter((p) => p.vis === 'hidden');
+			if (lost.length) out.push(['bad', `${lost.length} page(s) n'ont pas reçu toutes les commandes : connexion coupée ou instable entre ce navigateur et le serveur.`]);
+			if (poll.length) out.push(['bad', `Connexion en « ${poll[0].transport} » au lieu de WebSocket : chaque commande passe par une requête HTTP (plus lent). Vérifie que le proxy (Caddy) et le pare-feu laissent passer les WebSockets.`]);
+			if (net > NET_SLOW) out.push(['warn', `Réseau lent : jusqu'à ${net} ms entre le serveur et ce navigateur (aller-retour).`]);
+			if (frozen.length || hidden.length) out.push(['bad', `Le navigateur retarde l'affichage : ${frozen.length ? `${frozen.length} page(s) mettent plus de ${FRAME_SLOW} ms (ou ne dessinent pas) avant d'afficher` : ''}${hidden.length ? `${frozen.length ? ' ; ' : ''}${hidden.length} page(s) se croient masquées` : ''}. La commande est bien arrivée : c'est ce navigateur qui ne dessine pas la page à temps (source vMix / OBS hors programme, en pause ou à faible fréquence d'images).`]);
+			if (!out.length) out.push(['ok', `Tout est bon : commandes reçues en ${Math.max(...c.pages.map((p) => p.net || 0))} ms au plus (médiane), affichées dans l'image suivante.`]);
+			return out;
+		}
+		$('diagRun').onclick = () => {
+			$('diagRun').disabled = true;
+			$('diagOut').innerHTML = '';
+			KBD.flash('diagMsg', 'Mesure en cours…', 'info', 0);
+			nodecg.sendMessage('diag:run').then((r) => {
+				KBD.flash('diagMsg', r.clients.length ? `✔ ${r.clients.length} navigateur(s) ont répondu.` : 'Aucune page d\'overlay n\'a répondu : vMix / OBS sont-ils ouverts sur cette régie ?', r.clients.length ? 'ok' : 'err', 0);
+				$('diagOut').innerHTML = r.clients.map((c) => {
+					const v = verdict(c, r.sent);
+					const level = v.some(([k]) => k === 'bad') ? 'bad' : v.some(([k]) => k === 'warn') ? 'warn' : '';
+					const rows = c.pages.sort((a, b) => a.page.localeCompare(b.page)).map((p) => `<tr>
+						<td>${esc(p.page)}</td><td class="${p.got < r.sent ? 'bad' : ''}">${p.got}/${r.sent}</td>
+						<td class="${(p.netMax || 0) > NET_SLOW ? 'warn' : ''}">${ms(p.net)} · ${ms(p.netMax)}</td>
+						<td class="${p.rafMissed || (p.rafMax || 0) > FRAME_SLOW ? 'bad' : ''}">${p.rafMissed ? `aucune image (${p.rafMissed}×)` : `${ms(p.raf)} · ${ms(p.rafMax)}`}</td>
+						<td class="${p.vis === 'hidden' ? 'bad' : ''}">${esc(p.vis || '?')}</td><td class="${p.transport && p.transport !== 'websocket' ? 'bad' : ''}">${esc(p.transport || '?')}</td></tr>`).join('');
+					return `<div class="dg ${level}"><b>${esc(uaName(c.ua))} · ${c.pages.length} page(s)</b>
+						<div class="v">${v.map(([k, t]) => `<div class="${k === 'ok' ? '' : k === 'bad' ? 'err' : ''}">${k === 'ok' ? '✔' : '⚠'} ${esc(t)}</div>`).join('')}</div>
+						<details><summary>Détail par page</summary><table><tr><th>Page</th><th>Reçu</th><th>Réseau (méd. · max)</th><th>Affichage (méd. · max)</th><th>Visible</th><th>Connexion</th></tr>${rows}</table>
+						<div class="hint">${esc(c.ua)}</div></details></div>`;
+				}).join('');
+			}).catch((err) => KBD.flash('diagMsg', 'Test impossible : ' + errText(err), 'err', 0))
+				.finally(() => { $('diagRun').disabled = false; });
+		};
 
 		// ---------- 6. Bitfocus Companion ----------
 		$('cpBase').value = location.origin + '/valorant-tournament/api';

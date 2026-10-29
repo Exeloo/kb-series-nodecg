@@ -69,5 +69,18 @@ Quand la régie a un mot de passe (`start-reseau.bat` avec mot de passe, ou rég
 
 Cette clé donne un **accès complet** à la régie : traite-la comme un mot de passe, ne la montre jamais à l'écran. Le bouton **Reset Key** de la même page en crée une nouvelle (l'ancienne cesse de marcher : mets à jour l'URL dans OBS). Détails : [DEPLOIEMENT.md](DEPLOIEMENT.md).
 
+## Commandes en retard ou ignorées (vMix, OBS)
+Une commande AFFICHER / MASQUER suit ce chemin : régie → serveur → chaque page d'overlay ouverte dans vMix / OBS → affichage.
+Pour savoir où ça coince : panneau **Données** → **7. Diagnostic du direct** → **Tester la réactivité des overlays**, avec vMix / OBS ouverts.
+- **Réseau lent** ou **commandes perdues** : la connexion entre le PC de stream et le serveur (VPS) est en cause.
+- **Connexion autre que « websocket »** : le proxy ou le pare-feu bloque les WebSockets ; chaque commande passe alors par une requête HTTP, plus lente.
+- **Le navigateur retarde l'affichage** (affichage > 200 ms, « aucune image », page « hidden ») : la commande est arrivée, mais le navigateur
+  de vMix / OBS ne dessine pas la page à temps. Une source navigateur qui n'est ni au programme ni en préparation (ou réglée sur une faible
+  fréquence d'images) peut être suspendue par vMix / OBS. Garde la source `stream.html` toujours active (au programme, en overlay
+  permanent ou dans une scène toujours affichée) plutôt que de l'ouvrir seulement au moment de l'utiliser.
+
+La régie limite d'elle-même ces retards : chaque overlay applique une commande au plus tard 50 ms après l'avoir reçue, même si le navigateur
+ne dessine pas, et les écrans de fond de `stream.html` sont chargés dès l'ouverture (en changer est instantané, sans rechargement de page).
+
 ## Version d'OBS
 Reste sur **OBS 32.x** pour le tournoi. OBS 33 (en bêta au 1er octobre 2026) change le moteur de rendu de ses sources navigateur (Chromium 127 → 150) : ne mets pas à jour sans avoir tout retesté (chaque overlay, la transition, l'écran 50/50).
