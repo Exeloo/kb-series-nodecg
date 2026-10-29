@@ -4,7 +4,9 @@
 #pl-root .fade { opacity: 0; }
 #pl-root.kb-in .fade { animation: pl-fade .6s ease forwards; animation-delay: var(--d, 0s); }
 #pl-root.kb-out .fade { animation: kb-fade-out .4s ease forwards !important; }
-#pl-root.kb-settled .kb-anim, #pl-root.kb-settled .fade { animation: none !important; opacity: 1 !important; }
+#pl-root.kb-settled:not(.kb-out) .kb-anim, #pl-root.kb-settled:not(.kb-out) .fade { animation: none !important; opacity: 1 !important; }
+/* Sortie de l'overlay : tout l'écran se fond (fond, filets, lueurs du rail) en plus des blocs */
+#pl-root.kb-out { opacity: 0; transition: opacity .4s ease; }
 @keyframes pl-fade { to { opacity: 1; } }
 #pl-root .kb-bg__art { opacity: .3; animation: pl-drift 40s ease-in-out infinite alternate; }
 @keyframes pl-drift { from { transform: scale(1.02); } to { transform: scale(1.07) translate(-12px, -8px); } }

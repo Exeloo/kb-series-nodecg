@@ -20,8 +20,8 @@
 
 		.team { position: relative; display: flex; align-items: center; gap: 22px; height: 150px; padding: 0 30px; min-width: 0; }
 		.team.right { flex-direction: row-reverse; text-align: right; }
-		.team::before { content: ''; position: absolute; inset: 14px 0; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 34%, transparent), transparent 85%); clip-path: polygon(0 0, 100% 0, calc(100% - 40px) 100%, 0 100%); opacity: .8; }
-		.team.right::before { background: linear-gradient(270deg, color-mix(in srgb, var(--c) 34%, transparent), transparent 85%); clip-path: polygon(0 0, 100% 0, 100% 100%, 40px 100%); }
+		.team::before { content: ''; position: absolute; inset: 14px 0; background: linear-gradient(90deg, rgba(var(--c-rgb), .34), transparent 85%); clip-path: polygon(0 0, 100% 0, calc(100% - 40px) 100%, 0 100%); opacity: .8; }
+		.team.right::before { background: linear-gradient(270deg, rgba(var(--c-rgb), .34), transparent 85%); clip-path: polygon(0 0, 100% 0, 100% 100%, 40px 100%); }
 		.team::after { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 6px; background: var(--c); box-shadow: 0 0 14px var(--c); transition: width .3s ease; }
 		.team.right::after { left: auto; right: 0; }
 		.team > * { position: relative; }
@@ -63,9 +63,11 @@
 		/* Pick */
 		.card.pick { transform: translateY(-12px); }
 		.card.pick .img { filter: brightness(.95) saturate(1.1); }
-		.card.pick .border { border: 4px solid var(--c); box-shadow: inset 0 0 40px color-mix(in srgb, var(--c) 60%, transparent); }
+		.card.pick .border { border: 4px solid var(--c); box-shadow: inset 0 0 40px rgba(var(--c-rgb), .6); }
 		.card.pick .tag { background: var(--c); color: #04061a; }
-		.card.pick .shade { background: linear-gradient(180deg, rgba(4, 6, 26, .6) 0%, transparent 22%, transparent 45%, color-mix(in srgb, var(--c) 28%, rgba(4, 6, 26, .95)) 80%); }
+		/* Teinte de l'équipe sur fond nuit. 1re déclaration : deux couches proches du color-mix, pour les navigateurs anciens (vMix) qui ignorent la 2de */
+		.card.pick .shade { background: linear-gradient(180deg, rgba(4, 6, 26, .6) 0%, transparent 22%, transparent 45%, rgba(var(--c-rgb), .28) 80%), linear-gradient(180deg, transparent 45%, rgba(4, 6, 26, .95) 80%);
+			background: linear-gradient(180deg, rgba(4, 6, 26, .6) 0%, transparent 22%, transparent 45%, color-mix(in srgb, var(--c) 28%, rgba(4, 6, 26, .95)) 80%); }
 		/* Decider */
 		.card.decider { transform: translateY(-12px); }
 		.card.decider .img { filter: brightness(.95) saturate(1.1); }
@@ -170,7 +172,7 @@
 			const turnKey = st.pendingSide >= 0 ? sideTeamOf(list, st.pendingSide) : st.next && st.next.team;
 			for (const [side, team, key] of [['L', sides.left, sides.leftKey], ['R', sides.right, sides.rightKey]]) {
 				const el = KB.$('#team' + side);
-				el.style.setProperty('--c', color(key));
+				KB.setColor(el, 'c', color(key));
 				el.classList.toggle('is-turn', !!turnKey && turnKey === key);
 				const html = `<div class="logo">${KB.teamLogo(team, 110)}</div>
 					<div class="txt"><div class="name">${KB.esc(team ? team.name : 'Équipe ' + key)}</div>
@@ -223,7 +225,7 @@
 					num.textContent = ''; tag.textContent = '';
 				} else {
 					const s = cs.s, t = teamOf(s.team);
-					c.style.setProperty('--c', color(s.team));
+					KB.setColor(c, 'c', color(s.team));
 					num.textContent = '#' + (cs.i + 1);
 					tag.textContent = s.action === 'ban' ? 'Ban' : s.action === 'decider' ? 'Decider' : 'Map ' + (order.indexOf(map) + 1);
 					html = s.action === 'decider'
@@ -253,7 +255,7 @@
 				const s = list[st.pendingSide];
 				const sk = sideTeamOf(list, st.pendingSide);
 				const t = teamOf(sk);
-				el.style.setProperty('--c', color(sk));
+				KB.setColor(el, 'c', color(sk));
 				html = `<span class="lbl">Choix du côté</span><span class="sep"></span>${KB.teamLogo(t, 52)}<span class="who">${KB.esc(t ? t.name : 'Équipe ' + sk)}</span><span class="act">sur ${KB.esc(s.map)}</span>`;
 				key = 'side' + st.pendingSide;
 			} else if (st.next) {
@@ -262,7 +264,7 @@
 					html = `<span class="lbl">Étape ${st.index + 1}</span><span class="sep"></span><span class="act decider">Map decider</span>`;
 				} else {
 					const t = teamOf(n.team);
-					el.style.setProperty('--c', color(n.team));
+					KB.setColor(el, 'c', color(n.team));
 					html = `<span class="lbl">Au tour de</span><span class="sep"></span>${KB.teamLogo(t, 52)}<span class="who">${KB.esc(t ? t.name : 'Équipe ' + n.team)}</span><span class="act ${KB.esc(n.action)}">${n.action === 'ban' ? 'Ban' : 'Pick'}</span>`;
 				}
 				key = 'step' + st.index;

@@ -13,7 +13,7 @@
 <style>
 	/* Trois lower thirds indépendants : bas-gauche, bas-centre et bas-droite (au-dessus du ticker).
 	   Le centre se construit comme la gauche (médaillon à gauche) mais s'ouvre depuis le milieu. */
-	.lt { position: absolute; bottom: 136px; display: flex; align-items: center; visibility: hidden; --accent: var(--kb-blue-hi); --accent-glow: var(--kb-blue-glow); }
+	.lt { position: absolute; bottom: 136px; display: flex; align-items: center; visibility: hidden; --accent: var(--kb-blue-hi); --accent-rgb: var(--kb-blue-hi-rgb); --accent-glow: var(--kb-blue-glow); }
 	.lt.left { left: 64px; }
 	.lt.right { right: 64px; flex-direction: row-reverse; }
 	.lt.center { left: 50%; transform: translateX(-50%); }
@@ -21,8 +21,8 @@
 	.trio .lt.left { left: 40px; } .trio .lt.right { right: 40px; }
 	.trio .body { min-width: 300px; max-width: 400px; padding: 14px 40px 16px 36px; }
 	.trio .right .body { padding: 14px 36px 16px 40px; }
-	.lt.gold { --accent: var(--kb-gold-hi); --accent-glow: rgba(245, 196, 69, .45); }
-	.lt.alert { --accent: var(--kb-red); --accent-glow: rgba(255, 70, 85, .5); }
+	.lt.gold { --accent: var(--kb-gold-hi); --accent-rgb: var(--kb-gold-hi-rgb); --accent-glow: rgba(245, 196, 69, .45); }
+	.lt.alert { --accent: var(--kb-red); --accent-rgb: var(--kb-red-rgb); --accent-glow: rgba(255, 70, 85, .5); }
 
 	/* Médaillon : entre en pivotant, puis flotte doucement */
 	.badge { width: 128px; height: 128px; flex: 0 0 auto; display: grid; place-items: center; position: relative; z-index: 2; perspective: 600px; }
@@ -55,7 +55,7 @@
 	@keyframes wipe-l { 0% { opacity: 1; left: 0; } 85% { opacity: 1; } 100% { opacity: 0; left: 100%; } }
 	@keyframes wipe-r { 0% { opacity: 1; right: 0; } 85% { opacity: 1; } 100% { opacity: 0; right: 100%; } }
 
-	.body { --kb-cut: 22px; position: relative; overflow: hidden; min-width: 440px; max-width: 700px; padding: 16px 56px 18px 46px; border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+	.body { --kb-cut: 22px; position: relative; overflow: hidden; min-width: 440px; max-width: 700px; padding: 16px 56px 18px 46px; border-color: rgba(var(--accent-rgb), .55); }
 	.right .body { padding: 16px 46px 18px 56px; text-align: right; clip-path: polygon(0 0, calc(100% - var(--kb-cut)) 0, 100% var(--kb-cut), 100% 100%, var(--kb-cut) 100%, 0 calc(100% - var(--kb-cut))); }
 	.body::before { content: ''; position: absolute; top: 0; bottom: 0; width: 6px; background: var(--accent); box-shadow: 0 0 16px var(--accent-glow); animation: bar-breathe 2.8s ease-in-out infinite; }
 	.left .body::before, .center .body::before { left: 0; } .right .body::before { right: 0; }

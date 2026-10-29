@@ -53,6 +53,7 @@ Pour utiliser plutôt la transition « Stinger » d'OBS (ou dans un logiciel de 
 1. Régie lancée, panneau **Maps & Transitions** → carte **Exporter en séquence PNG**.
 2. **Exporter (logo)**, **Exporter + map choisie** (la map choisie dans le menu sous l'aperçu) ou **Exporter (replay)**. Une barre montre la progression.
 3. Résultat dans le dossier `exports/` du projet : `exports/stinger/` (logo seul), `exports/stinger-<map>/` (ex. `exports/stinger-ascent/`) ou `exports/stinger-replay/`, images `frame_0001.png`, `frame_0002.png`… en 1920×1080, 60 images/s, fond transparent.
+   **Télécharger** : à la fin, **Télécharger cet export (.zip)** ; la liste **Exports disponibles** de la même carte propose aussi les exports précédents. L'archive (images + `info.txt`) arrive dans le dossier de téléchargements du navigateur, même quand la régie tourne sur un autre PC.
 4. Le fichier `info.txt` du dossier donne la durée, le **point de coupe conseillé** (en millisecondes et en numéro d'image) et deux commandes `ffmpeg` pour assembler les images en vidéo avec transparence (OBS a besoin d'une vidéo pour un stinger).
 5. Dans OBS, crée une transition Stinger avec cette vidéo et règle son point de transition sur la valeur d'`info.txt`.
 
@@ -81,6 +82,12 @@ Pour savoir où ça coince : panneau **Données** → **7. Diagnostic du direct*
 
 La régie limite d'elle-même ces retards : chaque overlay applique une commande au plus tard 50 ms après l'avoir reçue, même si le navigateur
 ne dessine pas, et les écrans de fond de `stream.html` sont chargés dès l'ouverture (en changer est instantané, sans rechargement de page).
+
+## Dégradés en rectangles pleins (vMix)
+Le navigateur intégré à vMix (et aux anciennes versions d'OBS) repose sur un Chromium plus ancien. Les overlays en tiennent compte : les fondus
+derrière les photos de joueurs et les agents, et les teintes aux couleurs des équipes, s'affichent comme dans un navigateur récent.
+Si un dégradé apparaît encore en rectangle plein, vide le cache de la source navigateur (vMix : clic droit sur l'entrée → **Reload**, ou
+retire-la et ajoute-la de nouveau) pour qu'elle recharge les fichiers à jour.
 
 ## Version d'OBS
 Reste sur **OBS 32.x** pour le tournoi. OBS 33 (en bêta au 1er octobre 2026) change le moteur de rendu de ses sources navigateur (Chromium 127 → 150) : ne mets pas à jour sans avoir tout retesté (chaque overlay, la transition, l'écran 50/50).

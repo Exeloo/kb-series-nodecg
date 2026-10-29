@@ -21,6 +21,7 @@ extension/               serveur du bundle
   lib/listen.js          réception des messages sans jamais faire tomber le serveur
   lib/backup.js          sauvegardes db/backups/, liste des replicants de données (NAMES) et des overlays (OVERLAYS)
   lib/http.js            gardes des routes : requireLogin, sameOrigin
+  lib/zip.js             archive ZIP envoyée en flux, sans compression (téléchargement des exports du stinger)
   state.js               replicants coeur + cache valorant-api.com
   tracker.js             normalisation d'un JSON tracker.gg → profil (playerProfiles), JSON brut dans db/tracker/
   tracker-routes.js      routes HTTP de l'import tracker.gg (+ static/ : tracker-receiver.html, tracker-guide.html)
@@ -173,9 +174,10 @@ Références : `Medias/` (affiche et logo, hors git) et `shared/theme.css`, à l
 - **Tokens** (`:root` de `theme.css`) : fonds `--kb-night-0…3`, `--kb-indigo` ; bleus `--kb-blue`, `--kb-blue-hi`, `--kb-blue-glow` ; or `--kb-gold`, `--kb-gold-hi`, `--kb-gold-dim` ; `--kb-orange`, `--kb-red` ; texte `--kb-text`, `--kb-muted`, `--kb-line`, `--kb-ink` (texte sur fond or) ; `--team-a` / `--team-b` ; `--kb-cut` ; easings `--kb-ease-out`, `--kb-ease-inout`. Pas de nouvelle palette.
 - **Polices** (locales, `shared/fonts/`, licence OFL, aucune dépendance à Google Fonts) : Anton `--kb-display` (gros titres, chiffres), Poppins `--kb-ui` (labels espacés), Barlow Condensed `--kb-num` (infos compactes).
 - **Couleurs** : `--kb-red` réservé aux défaites, au LIVE, aux bans et au bug Replay. Couleur d'équipe : `team.color`, sinon `KB.teamColor` (`KB.TEAM_COLORS`, mêmes valeurs que `--team-a` / `--team-b`).
+- **Compatibilité navigateurs anciens** (vMix, OBS anciens : Chromium avant 111 / 120) : pas de `color-mix()` pour une couleur transparente, mais `rgba(var(--x-rgb), a)` avec la couleur posée par `KB.setColor(el, 'x', couleur)` (pose `--x` et `--x-rgb`), les tokens ayant leur `-rgb` (`--kb-blue-rgb`, `--team-a-rgb`…) ; un `color-mix()` indispensable passe en 2de déclaration après un repli. Tout `mask-image` est doublé d'un `-webkit-mask-image` (sinon le dégradé devient un rectangle plein).
 - **Classes** : `.kb-bg` (+ `__art`, `__stars`, `__grid`), `.kb-frame`, `.kb-panel`, `.kb-rule`, `.kb-kicker`, `.kb-label`, `.kb-title`, `.kb-neon`, `.kb-pill`, `.kb-trapeze`, `.kb-team-mono`, `.kb-marquee`, `.kb-shine`. Logos via `KB.img` (`kbs-logo.png`, `cycom-alpha.png`, `epitech-alpha.png`, `poster-art.webp`).
 - **Mise en page** : 1920×1080, `<html class="kb-graphic">` ; fond **transparent** pour les overlays en jeu (lower thirds, ticker), fond plein `.kb-bg` pour les écrans plein écran ; 64 px de marge de sécurité ; données manquantes gérées proprement (monogramme `KB.teamLogo`, « – », jamais `undefined`).
-- **Animations** : entrée en cascade `.kb-anim` + `--i` sous `.kb-in`, sortie `.kb-out` rapide ; `KB.scene` / `KB.presence` gèrent l'affichage ; `.kb-idle` met en pause toutes les animations d'un overlay masqué (n'anime jamais un élément visible dans une racine masquée) ; animer `transform` / `opacity`, pas la mise en page ; une donnée qui change se met à jour en place, sans rejouer toute l'entrée.
+- **Animations** : entrée en cascade `.kb-anim` + `--i` sous `.kb-in`, sortie `.kb-out` rapide ; `KB.scene` / `KB.presence` gèrent l'affichage (`.kb-settled` reste posée pendant la sortie : une règle « installé » en `!important` s'écrit `.kb-settled:not(.kb-out)` pour laisser jouer le fondu) ; `.kb-idle` met en pause toutes les animations d'un overlay masqué (n'anime jamais un élément visible dans une racine masquée) ; animer `transform` / `opacity`, pas la mise en page ; une donnée qui change se met à jour en place, sans rejouer toute l'entrée.
 
 ## Ajouter un overlay
 1. Crée `graphics/<nom>.html` : `<html class="kb-graphic">`, `theme.css`, `kb.js` (+ modules de partie), lecture par `KB.watch`, affichage par `KB.scene` ou `KB.presence`.
@@ -198,7 +200,7 @@ Références : `Medias/` (affiche et logo, hors git) et `shared/theme.css`, à l
 | `npm run check` | Ouvre chaque overlay et chaque panneau dans un navigateur invisible (Playwright) et signale erreurs console, exceptions, fichiers 4xx/5xx. Serveur lancé. Options : `--base <url>`, `--shots <dossier>`, `--only graphics\|dashboard`, `--wait <ms>`. |
 | `npm run verify` | `lint` puis `check`. |
 | `npm run shot -- <url> <sortie.png>` | Capture d'une page (`--wait`, `--w`, `--h`, `--eval`). Panneau hors tableau de bord : ajouter `?standalone=true` à l'URL. |
-| `npm run export:stinger` | Exporte `transition.html` en PNG (`--map` ou `--replay`, `--fps`, `--out`, `--host`, `--settings`) dans `exports/stinger[-<map>\|-replay]/` + `info.txt`. Serveur lancé. |
+| `npm run export:stinger` | Exporte `transition.html` en PNG (`--map` ou `--replay`, `--fps`, `--out`, `--host`, `--settings`) dans `exports/stinger[-<map>\|-replay]/` + `info.txt`. Téléchargement en .zip depuis le panneau : routes `GET /valorant-tournament/stinger-exports` (liste) et `…/stinger-exports/<dossier>.zip` (`extension/maps.js`, archive écrite en flux par `extension/lib/zip.js`). Serveur lancé. |
 | `npm run pack:extension` | Empaquette `tools/tracker-extension` en `exports/kb-tracker-import-<version>.zip` (à faire signer sur addons.mozilla.org pour Firefox). |
 | `npm run dev` | Serveur redémarré quand `extension/` ou `package.json` change. |
 

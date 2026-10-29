@@ -12,7 +12,7 @@
 	-->
 	<link rel="stylesheet" href="../shared/theme.css">
 	<style>
-		:root { --team: var(--kb-blue); }
+		:root { --team: var(--kb-blue); --team-rgb: var(--kb-blue-rgb); }
 
 		/* ---------- Scène ---------- */
 		#scene { position: absolute; inset: 0; visibility: hidden; clip-path: inset(0 100% 0 0); }
@@ -36,19 +36,19 @@
 		#visual { position: absolute; left: 0; top: 0; width: 960px; height: 1080px; overflow: hidden; }
 		/* Halo + forme à la couleur de l'équipe derrière la photo (respirent doucement) */
 		#halo { position: absolute; left: 130px; top: 110px; width: 680px; height: 680px; border-radius: 50%;
-			background: radial-gradient(circle, color-mix(in srgb, var(--team) 70%, transparent) 0%, color-mix(in srgb, var(--team) 22%, transparent) 45%, transparent 70%);
+			background: radial-gradient(circle, rgba(var(--team-rgb), .7) 0%, rgba(var(--team-rgb), .22) 45%, transparent 70%);
 			animation: breathe 6s ease-in-out infinite; }
 		@keyframes breathe { 0%, 100% { transform: scale(1); opacity: .85; } 50% { transform: scale(1.07); opacity: 1; } }
 		#shape { position: absolute; left: 270px; top: 150px; width: 400px; height: 720px; transform: skewX(-12deg); overflow: hidden;
-			background: linear-gradient(180deg, color-mix(in srgb, var(--team) 50%, transparent), color-mix(in srgb, var(--team) 10%, transparent) 70%, transparent);
-			border: 2px solid color-mix(in srgb, var(--team) 70%, white 10%); border-bottom: 0; box-shadow: 0 0 40px color-mix(in srgb, var(--team) 40%, transparent);
-			mask-image: linear-gradient(180deg, #000 55%, transparent 95%); }
-		#shape::after { content: ''; position: absolute; top: 0; bottom: 0; width: 45%; left: -60%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .22), transparent); animation: kb-shine 7s ease-in-out 2s infinite; }
+			background: linear-gradient(180deg, rgba(var(--team-rgb), .5), rgba(var(--team-rgb), .1) 70%, transparent);
+			border: 2px solid rgba(var(--team-rgb), .8); border: 2px solid color-mix(in srgb, var(--team) 70%, white 10%); border-bottom: 0; box-shadow: 0 0 40px rgba(var(--team-rgb), .4);
+			-webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 95%); mask-image: linear-gradient(180deg, #000 55%, transparent 95%); }
+		#shape::after { content: ''; position: absolute; top: 0; bottom: 0; width: 45%; left: -110%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .22), transparent); animation: kb-sweep 7s ease-in-out 2s infinite; }
 
 		/* Photo : ancrée en bas, centrée sur l'axe du visuel, fondue en bas ; légère lévitation */
 		#photoBox { position: absolute; left: 470px; bottom: 150px; width: 0; height: 0; }
 		#photo { position: absolute; left: 0; bottom: 0; height: 800px; width: auto; max-width: none; transform: translateX(-50%);
-			mask-image: linear-gradient(180deg, #000 70%, transparent 98%); filter: drop-shadow(0 24px 40px rgba(0, 0, 0, .55)); }
+			-webkit-mask-image: linear-gradient(180deg, #000 70%, transparent 98%); mask-image: linear-gradient(180deg, #000 70%, transparent 98%); filter: drop-shadow(0 24px 40px rgba(0, 0, 0, .55)); }
 		#photoFloat { position: absolute; inset: 0; animation: float 7s ease-in-out 1.8s infinite; }
 		@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 		#scene.kb-in #photoBox { animation: photoIn 1.3s var(--kb-ease-out) .25s both; }
@@ -65,7 +65,8 @@
 		/* Lueur à la couleur de l'agent : ovale (60 % × 55 % du bloc) adouci sur ~210 px par un masque en dégradé
 		   (même rendu qu'un flou de 70 px, sans filter: blur, coûteux sous OBS). L'opacité compense l'ovale plus petit des agents de fond. */
 		.ag .in::before { content: ''; position: absolute; left: calc(20% - 210px); top: calc(18% - 210px); width: calc(60% + 420px); height: calc(55% + 420px); background: var(--c); opacity: .45;
-			mask-image: radial-gradient(closest-side, rgba(0, 0, 0, .91), rgba(0, 0, 0, .89) 8.3%, rgba(0, 0, 0, .83) 16.7%, rgba(0, 0, 0, .725) 25%, rgba(0, 0, 0, .58) 33.3%, rgba(0, 0, 0, .42) 41.7%,
+			-webkit-mask-image: radial-gradient(closest-side, rgba(0, 0, 0, .91), rgba(0, 0, 0, .89) 8.3%, rgba(0, 0, 0, .83) 16.7%, rgba(0, 0, 0, .725) 25%, rgba(0, 0, 0, .58) 33.3%, rgba(0, 0, 0, .42) 41.7%,
+				rgba(0, 0, 0, .27) 50%, rgba(0, 0, 0, .15) 58.3%, rgba(0, 0, 0, .074) 66.7%, rgba(0, 0, 0, .03) 75%, rgba(0, 0, 0, .01) 83.3%, transparent); mask-image: radial-gradient(closest-side, rgba(0, 0, 0, .91), rgba(0, 0, 0, .89) 8.3%, rgba(0, 0, 0, .83) 16.7%, rgba(0, 0, 0, .725) 25%, rgba(0, 0, 0, .58) 33.3%, rgba(0, 0, 0, .42) 41.7%,
 				rgba(0, 0, 0, .27) 50%, rgba(0, 0, 0, .15) 58.3%, rgba(0, 0, 0, .074) 66.7%, rgba(0, 0, 0, .03) 75%, rgba(0, 0, 0, .01) 83.3%, transparent); }
 		.ag.a1 .in::before { opacity: .41; }
 		.ag.a2 .in::before { opacity: .365; }
@@ -101,7 +102,7 @@
 		#brand .t { font: 400 28px/1 var(--kb-display); letter-spacing: .04em; }
 		#brand .s { font: 600 13px var(--kb-ui); letter-spacing: .28em; color: var(--kb-gold); text-transform: uppercase; margin-top: 4px; }
 		#brand .lg { position: relative; overflow: hidden; border-radius: 50%; }
-		#brand .lg::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .45), transparent); transform: skewX(-20deg); animation: kb-shine 5s ease-in-out 2.5s infinite; }
+		#brand .lg::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: -110%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .45), transparent); transform: skewX(-20deg); animation: kb-sweep 5s ease-in-out 2.5s infinite; }
 
 		/* ---------- Stats ---------- */
 		#content { position: absolute; left: 1050px; top: 96px; right: 88px; bottom: 96px; display: flex; flex-direction: column; }
@@ -305,7 +306,7 @@
 			const pick = KB.pickOf(p.riotId);
 			const first = chosen || (pick && (all.find((a) => a.name === pick.name) || pick)) || all[0];
 			const agents = first ? [first, ...all.filter((a) => !same(a, first))].slice(0, 3) : [];
-			document.documentElement.style.setProperty('--team', KB.teamColor(p.team));
+			KB.setColor(document.documentElement, 'team', KB.teamColor(p.team));
 
 			// Photo standing ou emblème estompé (logo d'équipe / monogramme / logo KB)
 			$('photoBox').style.display = p.photo ? 'block' : 'none';

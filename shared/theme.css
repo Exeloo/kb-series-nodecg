@@ -16,18 +16,22 @@
 
 	/* Bleus électriques (lignes, "5v5", horaires de l'affiche) */
 	--kb-blue: #3b8fe6;
+	--kb-blue-rgb: 59, 143, 230;  /* canaux r, g, b : rgba(var(--x-rgb), a), color-mix() n'existant pas dans les navigateurs anciens (vMix) */
 	--kb-blue-hi: #5ec4ff;
+	--kb-blue-hi-rgb: 94, 196, 255;
 	--kb-blue-glow: rgba(78, 170, 255, .55);
 
 	/* Or (cadre, pastilles "ONLINE", logo KB) */
 	--kb-gold: #c9b274;
 	--kb-gold-hi: #f5c445;
+	--kb-gold-hi-rgb: 245, 196, 69;
 	--kb-gold-dim: rgba(201, 178, 116, .35);
 
 	/* Néon orange ("INSCRIPTION") + rouge Valorant */
 	--kb-orange: #ff9a3c;
 	--kb-orange-glow: rgba(255, 140, 40, .6);
 	--kb-red: #ff4655;
+	--kb-red-rgb: 255, 70, 85;
 
 	/* Texte */
 	--kb-text: #f3f1ea;
@@ -37,7 +41,9 @@
 
 	/* Couleurs d'équipe par défaut (écrasées par team.color ; mêmes valeurs que KB.TEAM_COLORS) */
 	--team-a: #3b8fe6;
+	--team-a-rgb: 59, 143, 230;
 	--team-b: #ff4655;
+	--team-b-rgb: 255, 70, 85;
 
 	/* Typo */
 	--kb-display: 'Anton', 'Impact', sans-serif;               /* gros titres, chiffres */
@@ -81,7 +87,7 @@
 	position: absolute; inset: 0; opacity: .25;
 	background-image: linear-gradient(var(--kb-line) 1px, transparent 1px), linear-gradient(90deg, var(--kb-line) 1px, transparent 1px);
 	background-size: 96px 96px;
-	mask-image: radial-gradient(ellipse at center, #000 30%, transparent 80%);
+	-webkit-mask-image: radial-gradient(ellipse at center, #000 30%, transparent 80%); mask-image: radial-gradient(ellipse at center, #000 30%, transparent 80%);
 }
 @keyframes kb-twinkle { from { opacity: .45; } to { opacity: .85; } }
 
@@ -150,7 +156,8 @@
 @keyframes kb-from-left { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: none; } }
 @keyframes kb-from-right { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: none; } }
 @keyframes kb-pop { 0% { opacity: 0; transform: scale(.8); } 70% { opacity: 1; transform: scale(1.04); } 100% { opacity: 1; transform: none; } }
-@keyframes kb-fade-out { to { opacity: 0; transform: translateY(-10px); } }
+/* Départ explicite : sans lui, la sortie partirait de l'opacité de repos d'un .kb-anim (0) et l'élément disparaîtrait d'un coup */
+@keyframes kb-fade-out { from { opacity: 1; } to { opacity: 0; transform: translateY(-10px); } }
 /* Une fois installé (.kb-settled, voir KB.scene), un re-rendu ne rejoue plus les entrées */
 .kb-settled .kb-anim { opacity: 1; animation: none; }
 
@@ -167,4 +174,7 @@
 .kb-shine::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: 0; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .35), transparent); transform: translateX(-150%) skewX(-20deg); animation: kb-shine 4s ease-in-out infinite; }
 /* Translations en % de la largeur du reflet (40 % du bloc) : de -60 % à +130 % du bloc */
 @keyframes kb-shine { 0%, 60% { transform: translateX(-150%) skewX(-20deg); } 100% { transform: translateX(325%) skewX(-20deg); } }
+/* Variante en % du bloc (reflet posé avec left: -110 %) : sort entièrement à droite quelle que soit sa largeur ou son biais,
+   au lieu de s'arrêter au milieu du logo quand le reflet ne part pas de left: 0 */
+@keyframes kb-sweep { 0%, 60% { left: -110%; } 100% { left: 140%; } }
 

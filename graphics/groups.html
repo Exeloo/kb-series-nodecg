@@ -12,10 +12,12 @@
 	<style>
 		/* Affichage géré par KB.scene : .kb-in / .kb-out, puis .kb-settled une fois les entrées jouées */
 		#root { position: absolute; inset: 0; visibility: hidden; }
+		/* Sortie : tout l'écran se fond (fond, filets, reflets) en plus des blocs */
+		#root.kb-out { opacity: 0; transition: opacity .4s ease; }
 		.fade { opacity: 0; }
 		.kb-in .fade { animation: gp-fade .6s ease forwards; animation-delay: var(--d, 0s); }
 		.kb-out .fade { animation: kb-fade-out .4s ease forwards !important; }
-		.kb-settled .kb-anim, .kb-settled .fade { animation: none !important; opacity: 1 !important; }
+		.kb-settled:not(.kb-out) .kb-anim, .kb-settled:not(.kb-out) .fade { animation: none !important; opacity: 1 !important; }
 		@keyframes gp-fade { to { opacity: 1; } }
 		.kb-bg__art { opacity: .32; animation: gp-drift 40s ease-in-out infinite alternate; }
 		@keyframes gp-drift { from { transform: scale(1.02); } to { transform: scale(1.07) translate(12px, -8px); } }

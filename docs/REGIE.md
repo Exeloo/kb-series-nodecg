@@ -62,7 +62,7 @@ Le panneau du direct. Il ne touche jamais aux données.
 - **Transition à l'antenne** : **▶ Transition logo**, **▶ Transition + map** et **▶ Replay** jouent la transition à l'antenne, sans rien changer d'autre. Le texte en dessous donne le point de coupe.
 - **Réglages de la transition (enregistrés automatiquement)** : chaque changement part **aussitôt à l'antenne**. **Préréglages** (Rapide, Normal, Long sur la map, Coupure nette, Cinématique, Explosif) et les tiens (**Enregistrer mes réglages**, ✕ en 2 clics) ; **Durées** ; **Volets** ; **Logo** ; **Map**.
 - **Revenir aux réglages par défaut** : 2 clics, appliqué à l'antenne aussitôt (tes préréglages perso sont gardés).
-- **Exporter en séquence PNG** : **Exporter (logo)** / **Exporter + map choisie** / **Exporter (replay)** → dossier `exports/` (voir [OBS.md](OBS.md#la-transition-stinger)).
+- **Exporter en séquence PNG** : **Exporter (logo)** / **Exporter + map choisie** / **Exporter (replay)** → dossier `exports/` du serveur ; **Télécharger cet export (.zip)** à la fin, et liste **Exports disponibles** (↻ pour la recharger) avec un bouton **Télécharger .zip** par export (voir [OBS.md](OBS.md#la-transition-stinger)).
 - **Écrans maps** : **Intro de map** (menu **Map**, par défaut « Auto — map courante »), **Maps de la série**, **Résultat de map** (map, **MVP** parmi les joueurs de l'équipe gagnante, ou nom libre + équipe + **OK**), chacun avec **AFFICHER**. **Tout masquer** masque ces trois écrans.
 
 ---

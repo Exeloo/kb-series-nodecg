@@ -7,7 +7,7 @@
 		Panneau Maps & Transitions : réglages du stinger (aperçu local, préréglages, export PNG), lancement de la transition
 		(logo seul, logo + map ou replay)
 		et écrans maps (intro, série, résultat + MVP). Écrit `mapsTransitionSettings`, `transition` (seuls les boutons « ▶ Transition »)
-		et `mapsGraphics` (map choisie, MVP ; visibilité via KBO). Message envoyé : `maps:exportStinger` (progression dans `mapsExport`).
+		et `mapsGraphics` (map choisie, MVP ; visibilité via KBO). Message envoyé : `maps:exportStinger` (progression dans `mapsExport`). Routes : GET stinger-exports, GET stinger-exports/<dossier>.zip.
 	-->
 	<link rel="stylesheet" href="../shared/dashboard.css">
 	<style>
@@ -18,6 +18,12 @@
 		.timing i { position: absolute; top: 0; bottom: 0; left: var(--from, 0); width: var(--w, 0); background: var(--gold); opacity: .8; }
 		.timing b { position: absolute; top: -3px; bottom: -3px; left: var(--at, 0); width: 2px; background: #fff; }
 		.timing.hidden { display: none; }
+		.ex-head { margin-top: 12px !important; }
+		.ex-head button { margin-left: auto; padding: 2px 8px; }
+		.ex-item { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+		.ex-item b { font-size: 13px; }
+		.ex-item .hint { margin: 0; }
+		.ex-item.fresh b { color: var(--gold); }
 		#ex-fill { left: 0; width: 0; background: var(--blue); }
 		.mono { font-family: Consolas, monospace; color: var(--text); }
 		.warn { color: var(--red); }
@@ -127,7 +133,7 @@
 
 	<div class="card">
 		<h4>Exporter en séquence PNG</h4>
-		<div class="hint">1920×1080, 60 i/s, fond transparent, avec les réglages ci-dessus → dossier <span class="mono">exports/</span> du bundle. La map utilisée est celle choisie sous l'aperçu.</div>
+		<div class="hint">1920×1080, 60 i/s, fond transparent, avec les réglages ci-dessus → dossier <span class="mono">exports/</span> du serveur, puis téléchargeable ici en .zip. La map utilisée est celle choisie sous l'aperçu.</div>
 		<div class="row">
 			<button id="ex-logo">Exporter (logo)</button>
 			<button id="ex-map">Exporter + map choisie</button>
@@ -135,6 +141,8 @@
 		</div>
 		<div class="timing hidden" id="ex-bar"><i id="ex-fill"></i></div>
 		<div class="msg" id="ex-msg"></div>
+		<h4 class="ex-head">Exports disponibles <button class="shrink" id="ex-refresh" title="Recharger la liste">↻</button></h4>
+		<div id="ex-list"><div class="hint">Chargement…</div></div>
 	</div>
 
 	<h3>Écrans maps</h3>
@@ -379,8 +387,41 @@
 		$('#ex-logo').onclick = () => startExport(null, 'logo');
 		$('#ex-map').onclick = () => startExport(pvChoice().map, 'map');
 		$('#ex-replay').onclick = () => startExport(null, 'replay');
+		// ---- Téléchargement des exports (.zip : images + info.txt), routes de extension/maps.js ----
+		const EX_URL = '/valorant-tournament/stinger-exports';
+		const exLabel = (n) => (n === 'stinger' ? 'Logo seul' : n === 'stinger-replay' ? 'Replay' : 'Map ' + n.slice(8).replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
+		const mo = (b) => (b >= 1048576 ? (b / 1048576).toFixed(b >= 104857600 ? 0 : 1) + ' Mo' : Math.max(1, Math.round(b / 1024)) + ' Ko');
+		const when = (t) => new Date(t).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+		// Lien direct (pas de fetch + blob) : le navigateur écrit l'archive sur le disque au fil de l'eau et affiche sa progression
+		const downloadExport = (name) => {
+			const a = document.createElement('a');
+			a.href = `${EX_URL}/${encodeURIComponent(name)}.zip`;
+			a.download = `kb-${name}.zip`;
+			document.body.appendChild(a); a.click(); a.remove();
+		};
+		let exFresh = null;
+		async function loadExports() {
+			const box = $('#ex-list');
+			try {
+				const r = await fetch(EX_URL, { credentials: 'include', cache: 'no-store' });
+				const j = await r.json().catch(() => null);
+				if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || `erreur ${r.status}`);
+				box.innerHTML = j.exports.length ? j.exports.map((e) => `<div class="ex-item${e.name === exFresh ? ' fresh' : ''}">
+					<div><b>${esc(exLabel(e.name))}</b><div class="hint">${e.frames} images · ${mo(e.bytes)} · ${esc(when(e.at))}</div></div>
+					<button class="shrink${e.name === exFresh ? ' primary' : ''}" data-dl="${esc(e.name)}">Télécharger .zip</button></div>`).join('')
+					: '<div class="hint">Aucun export pour l’instant.</div>';
+			} catch (e) {
+				box.innerHTML = `<div class="hint warn">Liste des exports indisponible : ${esc(e.message || String(e))}</div>`;
+			}
+		}
+		$('#ex-list').addEventListener('click', (ev) => { const b = ev.target.closest('[data-dl]'); if (b) downloadExport(b.dataset.dl); });
+		$('#ex-refresh').onclick = loadExports;
+		loadExports();
+		let exWasRunning = null;
 		exp.on('change', (v) => {
 			if (!v) return;
+			// Fin d'un export (ou premier état reçu) : la liste change
+			if (exWasRunning !== !!v.running) { exWasRunning = !!v.running; if (!v.running) { exFresh = v.path && !v.error ? v.path.split(/[\\/]/).pop() : null; loadExports(); } }
 			$('#ex-logo').disabled = $('#ex-map').disabled = $('#ex-replay').disabled = !!v.running;
 			$('#ex-bar').classList.toggle('hidden', !(v.running || v.path));
 			$('#ex-fill').style.width = (v.total ? (v.done / v.total) * 100 : 0) + '%';
@@ -388,7 +429,9 @@
 			else if (v.error) KBD.flash('ex-msg', v.error, 'err', 0);
 			else if (v.path) {
 				const m = KBD.flash('ex-msg', 'Terminé', 'ok', 0);
-				m.innerHTML = `Terminé : <span class="mono">${esc(v.path)}</span><br>${v.total} images · point de coupe ${KBM.stingerTiming(KBM.trSettings(), v.kind === 'replay' ? 'replay' : !!v.map).cut} ms (voir info.txt)`;
+				m.innerHTML = `Terminé : <span class="mono">exports/${esc(v.path.split(/[\\/]/).pop())}</span><br>${v.total} images · point de coupe ${KBM.stingerTiming(KBM.trSettings(), v.kind === 'replay' ? 'replay' : !!v.map).cut} ms (voir info.txt)`
+					+ `<div class="row"><button class="primary" data-dl-now>Télécharger cet export (.zip)</button></div>`;
+				m.querySelector('[data-dl-now]').onclick = () => downloadExport(v.path.split(/[\\/]/).pop());
 			} else KBD.flash('ex-msg', '');
 		});
 

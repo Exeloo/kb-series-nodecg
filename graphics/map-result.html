@@ -28,7 +28,7 @@
 		.team .lg .halo { position: absolute; inset: -14px; border-radius: 50%; background: radial-gradient(circle, var(--c) 0%, transparent 65%); opacity: .35; }
 		.team .lg .rays { position: absolute; inset: -70px; border-radius: 50%; display: none;
 			background: repeating-conic-gradient(from 0deg, rgba(245, 196, 69, .22) 0deg 6deg, transparent 6deg 24deg);
-			mask-image: radial-gradient(circle, #000 25%, transparent 68%); -webkit-mask-image: radial-gradient(circle, #000 25%, transparent 68%);
+			-webkit-mask-image: radial-gradient(circle, #000 25%, transparent 68%); mask-image: radial-gradient(circle, #000 25%, transparent 68%); -webkit-mask-image: radial-gradient(circle, #000 25%, transparent 68%);
 			animation: rays 30s linear infinite; }
 		@keyframes rays { to { transform: rotate(360deg); } }
 		.team.win .lg .rays { display: block; }

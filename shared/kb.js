@@ -65,6 +65,20 @@
 	/** Couleur d'une équipe, sinon la couleur par défaut de son côté. Ex. KB.teamColor(KB.team(m.teamB), 'B') */
 	KB.teamColor = (team, key) => (team && /^#[0-9a-f]{3,8}$/i.test(team.color) ? team.color : key === 'B' ? KB.TEAM_COLORS.B : KB.TEAM_COLORS.A);
 
+	/** « r, g, b » d'une couleur #rgb / #rrggbb(aa), null sinon. Pour rgba(var(--x-rgb), a) : color-mix() est ignoré par les navigateurs
+	 *  anciens (vMix, OBS < 30 : Chromium < 111), qui jettent alors tout le dégradé */
+	KB.rgb = (color) => {
+		let h = String(color || '').trim().replace(/^#/, '');
+		if (/^[0-9a-f]{3,4}$/i.test(h)) h = h.replace(/./g, '$&$&');
+		return /^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(h) ? [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).join(', ') : null;
+	};
+	/** Pose --name et --name-rgb sur un élément. Ex. KB.setColor(document.documentElement, 'team', KB.teamColor(team)) */
+	KB.setColor = (el, name, color) => {
+		const rgb = KB.rgb(color);
+		el.style.setProperty('--' + name, color);
+		if (rgb) el.style.setProperty('--' + name + '-rgb', rgb); else el.style.removeProperty('--' + name + '-rgb');
+	};
+
 	/** Liste ordonnée des équipes : celles du match en premier, puis par nom */
 	KB.orderedTeams = () => {
 		const teams = Object.values(KB.rep.teams.value || {});
@@ -249,8 +263,8 @@
 					renderFn();
 				} else if (p.visible) {
 					clearTimeout(settleT);
-					el.classList.remove('kb-settled');
-					p.hide();
+					// .kb-settled reste pendant la sortie (sinon chaque entrée se rejouerait sous le fondu) ; retiré une fois masqué
+					p.hide().then(() => { if (!p.visible) el.classList.remove('kb-settled'); });
 				}
 			},
 		};
